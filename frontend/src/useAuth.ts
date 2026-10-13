@@ -19,6 +19,9 @@ export interface Session {
   name: string;
   email: string;
   guest?: boolean;
+  accountType?: "personal" | "business";
+  businessName?: string;
+  businessContact?: string;
 }
 
 function loadSession(): Session | null {

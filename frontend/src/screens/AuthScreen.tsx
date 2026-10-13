@@ -4,12 +4,14 @@ import type { Session } from "../useAuth";
 import { ParrotLogo } from "../components/ParrotLogo";
 
 type Mode = "login" | "signup";
+type AccountType = "personal" | "business";
 
 interface Errors {
   name?: string;
   email?: string;
   password?: string;
   confirm?: string;
+  businessName?: string;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -20,6 +22,9 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>("personal");
+  const [businessName, setBusinessName] = useState("");
+  const [businessContact, setBusinessContact] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [artOk, setArtOk] = useState(true);
@@ -32,6 +37,9 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
   const validate = (): Errors => {
     const e: Errors = {};
     if (mode === "signup" && name.trim().length < 2) e.name = "Enter your full name.";
+    if (mode === "signup" && accountType === "business" && businessName.trim().length < 2) {
+      e.businessName = "Enter your business name.";
+    }
     if (!EMAIL_RE.test(email)) e.email = "Enter a valid email address.";
     if (password.length < 8) e.password = "Use at least 8 characters.";
     if (mode === "signup" && confirm !== password) e.confirm = "Passwords do not match.";
@@ -50,7 +58,13 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
         ? name.trim()
         : email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-    onAuthenticated({ name: displayName, email: email.trim() });
+    onAuthenticated({
+      name: displayName,
+      email: email.trim(),
+      accountType: mode === "signup" ? accountType : "personal",
+      businessName: accountType === "business" ? businessName.trim() : undefined,
+      businessContact: accountType === "business" ? businessContact.trim() : undefined,
+    });
   };
 
   return (
@@ -106,12 +120,39 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
       {/* Right — login / sign-up form */}
       <div className="auth-panel">
         <div className="auth-card">
-          <h2 className="auth-card__title">
-            {mode === "login" ? "sali na!" : "Create your account"}
-          </h2>
-          {mode === "signup" && (
-            <p className="auth-card__sub">Join your community in a few seconds.</p>
-          )}
+          <div className="auth-card__head">
+            <div>
+              <h2 className="auth-card__title">
+                {mode === "login" ? "sali na!" : "Create your account"}
+              </h2>
+              {mode === "signup" && (
+                <p className="auth-card__sub">Join your community in a few seconds.</p>
+              )}
+            </div>
+
+            {mode === "signup" && (
+              <div className="account-toggle" aria-label="Account type">
+                <button
+                  className={`account-toggle__btn ${
+                    accountType === "personal" ? "account-toggle__btn--active" : ""
+                  }`}
+                  onClick={() => setAccountType("personal")}
+                  type="button"
+                >
+                  Personal
+                </button>
+                <button
+                  className={`account-toggle__btn ${
+                    accountType === "business" ? "account-toggle__btn--active" : ""
+                  }`}
+                  onClick={() => setAccountType("business")}
+                  type="button"
+                >
+                  Business
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="segmented auth-seg">
             <button
@@ -145,6 +186,32 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
                 </div>
                 {errors.name && <span className="auth-error">{errors.name}</span>}
               </label>
+            )}
+
+            {mode === "signup" && accountType === "business" && (
+              <div className="business-fields">
+                <label className="field">
+                  <span className="field__label">Business name</span>
+                  <input
+                    className="input"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    placeholder="BitBit Cafe"
+                    autoComplete="organization"
+                  />
+                  {errors.businessName && <span className="auth-error">{errors.businessName}</span>}
+                </label>
+
+                <label className="field">
+                  <span className="field__label">Business contact</span>
+                  <input
+                    className="input"
+                    value={businessContact}
+                    onChange={(e) => setBusinessContact(e.target.value)}
+                    placeholder="Phone or Facebook page"
+                  />
+                </label>
+              </div>
             )}
 
             <label className="field">
