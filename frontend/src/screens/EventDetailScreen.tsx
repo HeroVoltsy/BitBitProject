@@ -13,11 +13,13 @@ const ABOUT =
 export function EventDetailScreen({
   event,
   onBack,
+  backLabel,
   onOpenHost,
   onNavigate,
 }: {
   event: EventItem;
   onBack: () => void;
+  backLabel: string;
   onOpenHost: () => void;
   onNavigate: (s: ScreenName) => void;
 }) {
@@ -48,7 +50,7 @@ export function EventDetailScreen({
   return (
     <div className="page page--narrow">
       <button className="back-link" onClick={onBack}>
-        <ArrowLeft size={18} strokeWidth={2.2} /> Back to events
+        <ArrowLeft size={18} strokeWidth={2.2} /> {backLabel}
       </button>
 
       <div className="detail-cover">
