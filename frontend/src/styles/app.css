@@ -1981,8 +1981,14 @@ button.setting-row:hover {
 }
 .auth-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 460px;
   animation: page-in 0.3s ease both;
+}
+.auth-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
 }
 .auth-card__title {
   font-size: 26px;
@@ -1994,6 +2000,33 @@ button.setting-row:hover {
   color: var(--text-muted);
   font-weight: 600;
   margin: 0 0 24px;
+}
+.account-toggle {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+}
+.account-toggle__btn {
+  padding: 7px 10px;
+  border-radius: var(--r-pill);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.account-toggle__btn:hover {
+  color: var(--text);
+}
+.account-toggle__btn--active {
+  background: var(--green);
+  color: #fff;
+}
+.account-toggle__btn--active:hover {
+  color: #fff;
 }
 .auth-seg {
   display: flex;
@@ -2008,6 +2041,15 @@ button.setting-row:hover {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+.business-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
 }
 .auth-pw-toggle {
   display: grid;
@@ -2320,8 +2362,19 @@ button.setting-row:hover {
 
 @media (max-width: 480px) {
   .form-row,
-  .stats-row {
+  .stats-row,
+  .business-fields {
     grid-template-columns: 1fr;
+  }
+  .auth-card__head {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .account-toggle {
+    width: 100%;
+  }
+  .account-toggle__btn {
+    flex: 1;
   }
   .home-search {
     max-width: none;
