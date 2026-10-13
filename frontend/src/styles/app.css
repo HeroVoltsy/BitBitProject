@@ -575,6 +575,12 @@
 .cal-card {
   padding: 22px;
 }
+.cal-jump {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
 .cal-month {
   display: flex;
   align-items: center;

@@ -15,6 +15,9 @@ const STATUS_CLASS: Record<EventStatus, string> = {
   Finished: "status--finished",
 };
 
+// Year range offered by the "Jump to" filter.
+const THIS_YEAR = new Date().getFullYear();
+
 export function CalendarScreen({ onOpenEvent }: { onOpenEvent: () => void }) {
   // Default to a month/day that has events so the list isn't empty on first load.
   const [view, setView] = useState({ year: 2026, month: 7 }); // August 2026
@@ -37,6 +40,15 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: () => void }) {
     setSelected(null);
   };
 
+  // Jump straight to any month/year instead of clicking through one month at a time.
+  const jumpTo = (year: number, month: number) => {
+    setView({ year, month });
+    setSelected(null);
+  };
+  const firstYear = Math.min(view.year, THIS_YEAR - 2);
+  const lastYear = Math.max(view.year, THIS_YEAR + 4);
+  const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => firstYear + i);
+
   const dayEvents = selected != null ? CALENDAR_EVENTS[keyFor(selected)] ?? [] : [];
   const selectedLabel =
     selected != null
@@ -55,6 +67,37 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: () => void }) {
 
       <div className="cal-layout">
         <div className="cal-card card">
+          <div className="cal-jump">
+            <label className="filter-field">
+              <span>Month</span>
+              <select
+                className="input"
+                value={view.month}
+                onChange={(e) => jumpTo(view.year, Number(e.target.value))}
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-field">
+              <span>Year</span>
+              <select
+                className="input"
+                value={view.year}
+                onChange={(e) => jumpTo(Number(e.target.value), view.month)}
+              >
+                {years.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           <div className="cal-month">
             <span className="cal-month__label">
               {MONTHS[view.month]} {view.year}
