@@ -1,0 +1,84 @@
+/* =============================================================================
+   Design tokens — extracted from the Sali Ka Figma source.
+   Two-tone warm palette: cream surfaces + emerald green accent.
+   ============================================================================= */
+:root {
+  /* Surfaces */
+  --bg: #faf9f3;
+  --surface: #ffffff;
+  --surface-alt: #f4f2ea;
+  --cover: #ecece2;
+
+  /* Text */
+  --text: #36322f;
+  --text-muted: #87827e;
+
+  /* Lines */
+  --border: #e9e6dc;
+  --border-strong: #dcd8cc;
+
+  /* Brand — emerald green */
+  --green: #2E7D32;
+  --green-dark: #1B5E20;
+  --green-soft: #E9F2E9;
+
+  /* Category accents */
+  --orange: #de7b45;
+  --orange-soft: #fff3eb;
+  --purple: #4b44de;
+  --purple-soft: #ecebff;
+  --blue: #1d75b5;
+  --blue-soft: #e6f5ff;
+
+  /* Radii */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(54, 50, 47, 0.04), 0 6px 16px rgba(54, 50, 47, 0.06);
+  --shadow-float: 0 8px 24px rgba(54, 50, 47, 0.12);
+  --shadow-fab: 0 8px 20px rgba(46, 125, 50, 0.4);
+
+  /* Layout */
+  --content-w: 1120px;
+  --nav-h: 68px;
+
+  /* Type — warm, modern, professional */
+  --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* =============================================================================
+   Dark theme — activated by the Settings toggle (data-theme="dark" on <html>).
+   ============================================================================= */
+:root[data-theme="dark"] {
+  --bg: #14130e;
+  --surface: #1f1d16;
+  --surface-alt: #29261d;
+  --cover: #2c281f;
+
+  --text: #f1eee5;
+  --text-muted: #a7a294;
+
+  --border: #322e24;
+  --border-strong: #423d33;
+
+  /* Primary fill (buttons, FAB, chips); -dark is the readable text/accent on
+     dark surfaces; -soft is the tinted background behind green text. */
+  --green: #43a047;
+  --green-dark: #7cc47f;
+  --green-soft: #1f2f1d;
+
+  --orange: #e8a06a;
+  --orange-soft: #33261a;
+  --purple: #9a94f2;
+  --purple-soft: #24233c;
+  --blue: #63acdf;
+  --blue-soft: #17273a;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --shadow-fab: 0 8px 20px rgba(0, 0, 0, 0.45);
+}

@@ -1,0 +1,26 @@
+{
+  "name": "sali-ka",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sali Ka — a community events discovery web app. Find, host, and check in to events happening around you.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^5.6.3",
+    "vite": "^8.2.2"
+  }
+}
