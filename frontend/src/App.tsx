@@ -21,6 +21,10 @@ export default function App() {
   const { session, login, logout } = useAuth();
   const [screen, setScreen] = useState<ScreenName>("home");
   const [activeEvent, setActiveEvent] = useState<EventItem>(FEED_EVENTS[0]);
+  // Where the event detail's Back button returns to (the screen that opened it).
+  const [eventOrigin, setEventOrigin] = useState<"home" | "profile">("home");
+  // Kept here so returning to Profile restores the Organizer/Attendee tab.
+  const [profileTab, setProfileTab] = useState<"attendee" | "organizer">("organizer");
   const [dark, setDark] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem("salika.theme") === "dark";
@@ -46,8 +50,9 @@ export default function App() {
   }, []);
 
   const openEvent = useCallback(
-    (event: EventItem) => {
+    (event: EventItem, origin: "home" | "profile" = "home") => {
       setActiveEvent(event);
+      setEventOrigin(origin);
       navigate("event-detail");
     },
     [navigate]
@@ -78,12 +83,18 @@ export default function App() {
         )}
         {screen === "create-event" && <CreateEventScreen onNavigate={navigate} />}
         {screen === "profile" && (
-          <ProfileScreen onNavigate={navigate} onOpenEvent={openEvent} />
+          <ProfileScreen
+            onNavigate={navigate}
+            onOpenEvent={(e) => openEvent(e, "profile")}
+            tab={profileTab}
+            onTabChange={setProfileTab}
+          />
         )}
         {screen === "event-detail" && (
           <EventDetailScreen
             event={activeEvent}
-            onBack={() => navigate("home")}
+            onBack={() => navigate(eventOrigin)}
+            backLabel={eventOrigin === "profile" ? "Back to profile" : "Back to events"}
             onOpenHost={() => navigate("host-profile")}
             onNavigate={navigate}
           />

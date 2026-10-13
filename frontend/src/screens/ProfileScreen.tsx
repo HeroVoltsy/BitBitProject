@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Settings, QrCode, Star } from "lucide-react";
 import { ScheduleItem } from "../components/ScheduleItem";
 import { FEED_EVENTS, GOING_LIST, HOST_STATS, HOSTED_RATINGS, USER } from "../data/events";
@@ -7,11 +6,14 @@ import type { EventItem, ScreenName } from "../types";
 export function ProfileScreen({
   onNavigate,
   onOpenEvent,
+  tab,
+  onTabChange: setTab,
 }: {
   onNavigate: (s: ScreenName) => void;
   onOpenEvent: (e: EventItem) => void;
+  tab: "attendee" | "organizer";
+  onTabChange: (t: "attendee" | "organizer") => void;
 }) {
-  const [tab, setTab] = useState<"attendee" | "organizer">("organizer");
 
   const hostedEvent = FEED_EVENTS.find((e) => e.hosting) ?? FEED_EVENTS[0];
   const attendingEvent = FEED_EVENTS.find((e) => e.attending) ?? FEED_EVENTS[0];
