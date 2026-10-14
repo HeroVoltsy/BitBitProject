@@ -1,5 +1,8 @@
 import type { Category, EventItem } from "../types";
 
+/** An event the current user organized, with the ratings it received (reviews 0 = unrated). */
+export type OrganizedEvent = EventItem & { dateLabel: string; rating: number; reviews: number };
+
 export const CATEGORIES: Category[] = [
   "Market",
   "Music",
@@ -215,17 +218,93 @@ export const USER = {
   membershipId: "CMN-40217",
 };
 
-/** Public reputation stats for the current user (and host profile). */
-export const HOST_STATS = {
-  hosted: 24,
-  followers: 312,
-  rating: 4.8,
-  reviews: 57,
-};
-
-/** Ratings the current user has earned on the events they hosted. */
-export const HOSTED_RATINGS = [
-  { title: "Naga Sunday Market", date: "Aug 23, 2026", rating: 4.9, reviews: 21 },
-  { title: "Kinalas Food Crawl", date: "Jun 28, 2026", rating: 4.8, reviews: 34 },
-  { title: "Barangay Fun Run", date: "May 12, 2026", rating: 4.7, reviews: 15 },
+/** Every event the current user has organized, newest first. Profile stats are derived from this. */
+export const ORGANIZED_EVENTS: OrganizedEvent[] = [
+  { ...FEED_EVENTS[0], dateLabel: "Aug 23, 2026", rating: 4.9, reviews: 21 },
+  {
+    id: "kinalas-food-crawl",
+    title: "Kinalas Food Crawl",
+    category: "Pop-Up",
+    monthLabel: "JUN",
+    day: "28",
+    dateLine: "Sun, Jun 28 · 4:00 PM",
+    location: "Centro, Naga City",
+    going: 64,
+    hosting: true,
+    dateLabel: "Jun 28, 2026",
+    rating: 4.8,
+    reviews: 34,
+  },
+  {
+    id: "barangay-fun-run",
+    title: "Barangay Fun Run",
+    category: "Fun Run",
+    monthLabel: "MAY",
+    day: "10",
+    dateLine: "Sun, May 10 · 5:30 AM",
+    location: "Brgy. Concepcion Pequeña, Naga City",
+    going: 88,
+    hosting: true,
+    dateLabel: "May 10, 2026",
+    rating: 4.7,
+    reviews: 15,
+  },
+  {
+    id: "plaza-night-market",
+    title: "Plaza Rizal Night Market",
+    category: "Market",
+    monthLabel: "MAR",
+    day: "21",
+    dateLine: "Sat, Mar 21 · 6:00 PM",
+    location: "Plaza Rizal, Naga City",
+    going: 120,
+    hosting: true,
+    dateLabel: "Mar 21, 2026",
+    rating: 4.6,
+    reviews: 12,
+  },
+  {
+    id: "riverside-cleanup",
+    title: "Riverside Clean-up Day",
+    category: "Volunteer",
+    monthLabel: "JAN",
+    day: "17",
+    dateLine: "Sat, Jan 17 · 7:00 AM",
+    location: "Naga River Esplanade",
+    going: 27,
+    hosting: true,
+    dateLabel: "Jan 17, 2026",
+    rating: 5.0,
+    reviews: 6,
+  },
 ];
+
+/** People who follow the current user. */
+export const FOLLOWERS = [
+  { name: "Maria Santos", location: "Brgy. Concepcion Pequeña", followingBack: true },
+  { name: "Jose dela Cruz", location: "Brgy. Triangulo", followingBack: true },
+  { name: "Andrea Reyes", location: "Brgy. Sabang", followingBack: false },
+  { name: "Paolo Mendoza", location: "Brgy. Calauag", followingBack: true },
+  { name: "Kristine Bautista", location: "Brgy. Peñafrancia", followingBack: false },
+  { name: "Miguel Torres", location: "Brgy. Abella", followingBack: false },
+  { name: "Angela Villanueva", location: "Brgy. Dinaga", followingBack: true },
+  { name: "Carlo Aquino", location: "Brgy. Tabuco", followingBack: false },
+  { name: "Bea Fernandez", location: "Brgy. Lerma", followingBack: false },
+  { name: "Rafael Lim", location: "Brgy. Pacol", followingBack: true },
+  { name: "Joanna Cruz", location: "Brgy. Bagumbayan Norte", followingBack: false },
+  { name: "Enzo Ramirez", location: "Brgy. San Felipe", followingBack: false },
+];
+
+const RATED = ORGANIZED_EVENTS.filter((e) => e.reviews > 0);
+const TOTAL_REVIEWS = RATED.reduce((sum, e) => sum + e.reviews, 0);
+
+/** Public reputation stats for the current user (and host profile), derived from the lists above. */
+export const HOST_STATS = {
+  hosted: ORGANIZED_EVENTS.length,
+  followers: FOLLOWERS.length,
+  reviews: TOTAL_REVIEWS,
+  // Average of all individual reviews (weighted by each event's review count).
+  rating: TOTAL_REVIEWS
+    ? RATED.reduce((sum, e) => sum + e.rating * e.reviews, 0) / TOTAL_REVIEWS
+    : 0,
+};

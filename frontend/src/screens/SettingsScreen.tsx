@@ -78,7 +78,24 @@ export function SettingsScreen({
       <SettingsGroup title="Support">
         <Row label="Help Center" chevron onClick={demo} />
         <Row label="Report a Problem" chevron onClick={demo} />
-        <Row label="Terms & Privacy" chevron onClick={demo} />
+        <Row
+          label="Terms & Conditions"
+          hint="Rules for using Sali Ka"
+          chevron
+          onClick={() => onNavigate("terms")}
+        />
+        <Row
+          label="Privacy Policy"
+          hint="How we handle your data"
+          chevron
+          onClick={() => onNavigate("privacy")}
+        />
+        <Row
+          label="Community By-laws"
+          hint="How members and Hosts are expected to behave"
+          chevron
+          onClick={() => onNavigate("bylaws")}
+        />
       </SettingsGroup>
 
       <button className="logout-btn" onClick={onLogout}>

@@ -40,7 +40,7 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
     if (mode === "signup" && accountType === "business" && businessName.trim().length < 2) {
       e.businessName = "Enter your business name.";
     }
-    if (!EMAIL_RE.test(email)) e.email = "Enter a valid email address.";
+    if (!EMAIL_RE.test(email.trim())) e.email = "Enter a valid email address.";
     if (password.length < 8) e.password = "Use at least 8 characters.";
     if (mode === "signup" && confirm !== password) e.confirm = "Passwords do not match.";
     return e;
@@ -56,14 +56,15 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
     const displayName =
       mode === "signup"
         ? name.trim()
-        : email.split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        : email.trim().split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+    const isBusiness = mode === "signup" && accountType === "business";
     onAuthenticated({
       name: displayName,
       email: email.trim(),
-      accountType: mode === "signup" ? accountType : "personal",
-      businessName: accountType === "business" ? businessName.trim() : undefined,
-      businessContact: accountType === "business" ? businessContact.trim() : undefined,
+      accountType: isBusiness ? "business" : "personal",
+      businessName: isBusiness ? businessName.trim() : undefined,
+      businessContact: isBusiness ? businessContact.trim() : undefined,
     });
   };
 
