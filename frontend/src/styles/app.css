@@ -2172,8 +2172,14 @@ button.setting-row:hover {
   height: auto;
   max-height: 42dvh;
   object-fit: contain;
-  filter: drop-shadow(0 22px 38px rgba(0, 0, 0, 0.3));
   animation: parrot-float 6s ease-in-out infinite;
+}
+.auth-hero__logo {
+  filter:
+    drop-shadow(2px 0 0 #fff)
+    drop-shadow(-2px 0 0 #fff)
+    drop-shadow(0 2px 0 #fff)
+    drop-shadow(0 -2px 0 #fff);
 }
 .auth-hero__art-fallback {
   color: #f4f8f5;
