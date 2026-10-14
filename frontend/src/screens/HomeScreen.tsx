@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { EventCard } from "../components/EventCard";
 import { DatePicker } from "../components/DatePicker";
+import { useToast } from "../components/Toast";
 import { CATEGORIES, FEED_EVENTS } from "../data/events";
 import type { Category, EventItem } from "../types";
 
@@ -11,7 +12,21 @@ const MONTH_IDX: Record<string, number> = {
   JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
 };
 
-export function HomeScreen({ onOpenEvent }: { onOpenEvent: (e: EventItem) => void }) {
+export function HomeScreen({
+  onOpenEvent,
+  likedIds,
+  onToggleLiked,
+}: {
+  onOpenEvent: (e: EventItem) => void;
+  likedIds: string[];
+  onToggleLiked: (id: string) => void;
+}) {
+  const notify = useToast();
+  const toggleLiked = (e: EventItem) => {
+    notify(likedIds.includes(e.id) ? "Removed from your liked events" : "Added to Profile → Liked");
+    onToggleLiked(e.id);
+  };
+
   const [active, setActive] = useState<Category | "All">("All");
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("All");
@@ -129,7 +144,13 @@ export function HomeScreen({ onOpenEvent }: { onOpenEvent: (e: EventItem) => voi
         <h2 className="section-title block__title">Events Around You</h2>
         <div className="feed-grid">
           {feed.map((e) => (
-            <EventCard key={e.id} event={e} onOpen={() => onOpenEvent(e)} />
+            <EventCard
+              key={e.id}
+              event={e}
+              onOpen={() => onOpenEvent(e)}
+              liked={likedIds.includes(e.id)}
+              onToggleLiked={() => toggleLiked(e)}
+            />
           ))}
         </div>
         {feed.length === 0 && <p className="empty">No events match your filters.</p>}

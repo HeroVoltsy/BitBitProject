@@ -409,6 +409,50 @@
   position: relative;
   height: 150px;
 }
+/* Card + like heart: the wrapper lifts on hover so the heart moves with the card. */
+.eventcard-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease;
+}
+.eventcard-wrap > .eventcard {
+  flex: 1;
+}
+.eventcard-wrap:hover {
+  transform: translateY(-4px);
+}
+.eventcard-wrap:hover > .eventcard {
+  transform: none;
+  box-shadow: var(--shadow-float);
+}
+.eventcard__like {
+  position: absolute;
+  top: 102px; /* bottom-right of the 150px cover */
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.16s ease, color 0.16s ease;
+}
+.eventcard__like:hover {
+  transform: scale(1.1);
+  color: #e0464a;
+}
+.eventcard__like--on {
+  color: #e0464a;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eventcard-wrap,
+  .eventcard__like {
+    transition: none;
+  }
+}
 .eventcard__stripes {
   height: 100%;
 }
@@ -1190,6 +1234,45 @@
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-card);
+}
+.segmented__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: #e0464a;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+.liked-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 24px;
+  text-align: center;
+}
+.liked-empty svg {
+  color: #e0464a;
+  margin-bottom: 4px;
+}
+.liked-empty strong {
+  font-size: 16px;
+}
+.liked-empty .muted {
+  max-width: 340px;
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (max-width: 420px) {
+  .segmented__tab {
+    padding: 9px 16px;
+  }
 }
 
 /* ---------------------------------------------------------------------------

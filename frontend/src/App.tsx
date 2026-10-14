@@ -17,10 +17,12 @@ import { PrivacyScreen } from "./screens/PrivacyScreen";
 import { BylawsScreen } from "./screens/BylawsScreen";
 import { OrganizedEventsScreen } from "./screens/OrganizedEventsScreen";
 import { FollowersScreen } from "./screens/FollowersScreen";
-import { FEED_EVENTS } from "./data/events";
+import { FEED_EVENTS, findEvent } from "./data/events";
 import { useAuth } from "./useAuth";
 import { ToastProvider } from "./components/Toast";
-import type { EventItem, ScreenName } from "./types";
+import type { EventItem, ProfileTab, ScreenName } from "./types";
+
+const LIKED_KEY = "salika.liked";
 
 // Screens that can open an event detail, and the label of the detail's Back button.
 type EventOrigin = "home" | "profile" | "organized-events";
@@ -37,7 +39,16 @@ export default function App() {
   // Where the event detail's Back button returns to (the screen that opened it).
   const [eventOrigin, setEventOrigin] = useState<EventOrigin>("home");
   // Kept here so returning to Profile restores the Organizer/Attendee tab.
-  const [profileTab, setProfileTab] = useState<"attendee" | "organizer">("organizer");
+  const [profileTab, setProfileTab] = useState<ProfileTab>("organizer");
+  // Ids of events the user liked (heart on the event page), newest first. Kept for the tab.
+  const [likedIds, setLikedIds] = useState<string[]>(() => {
+    try {
+      const stored: unknown = JSON.parse(sessionStorage.getItem(LIKED_KEY) ?? "[]");
+      return Array.isArray(stored) ? stored.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  });
   const [dark, setDark] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem("salika.theme") === "dark";
@@ -55,6 +66,20 @@ export default function App() {
       /* storage unavailable — theme stays in memory only */
     }
   }, [dark]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LIKED_KEY, JSON.stringify(likedIds));
+    } catch {
+      /* storage unavailable — likes stay in memory only */
+    }
+  }, [likedIds]);
+
+  const toggleLiked = useCallback((id: string) => {
+    setLikedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [id, ...ids]));
+  }, []);
+
+  const likedEvents = likedIds.map(findEvent).filter((e): e is EventItem => e !== undefined);
 
   const navigate = useCallback((next: ScreenName) => {
     setScreen(next);
@@ -80,6 +105,8 @@ export default function App() {
 
   const handleLogout = useCallback(() => {
     logout();
+    // Likes belong to the signed-in user; don't hand them to the next person on this tab.
+    setLikedIds([]);
     setScreen("home");
   }, [logout]);
 
@@ -93,7 +120,9 @@ export default function App() {
     <div className="app">
       <TopNav active={screen} onNavigate={navigate} userName={session.name} />
       <main>
-        {screen === "home" && <HomeScreen onOpenEvent={openEvent} />}
+        {screen === "home" && (
+          <HomeScreen onOpenEvent={openEvent} likedIds={likedIds} onToggleLiked={toggleLiked} />
+        )}
         {screen === "hosted" && (
           <HostedEventsScreen onOpenEvent={openEvent} onBack={() => navigate("home")} />
         )}
@@ -108,11 +137,15 @@ export default function App() {
             onOpenEvent={(e) => openEvent(e, "profile")}
             tab={profileTab}
             onTabChange={setProfileTab}
+            likedEvents={likedEvents}
+            onToggleLiked={toggleLiked}
           />
         )}
         {screen === "event-detail" && (
           <EventDetailScreen
             event={activeEvent}
+            liked={likedIds.includes(activeEvent.id)}
+            onToggleLiked={() => toggleLiked(activeEvent.id)}
             onBack={() => navigate(eventOrigin)}
             backLabel={BACK_LABELS[eventOrigin]}
             onOpenHost={() => navigate("host-profile")}

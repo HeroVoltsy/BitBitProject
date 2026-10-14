@@ -12,18 +12,21 @@ const ABOUT =
 
 export function EventDetailScreen({
   event,
+  liked,
+  onToggleLiked,
   onBack,
   backLabel,
   onOpenHost,
   onNavigate,
 }: {
   event: EventItem;
+  liked: boolean;
+  onToggleLiked: () => void;
   onBack: () => void;
   backLabel: string;
   onOpenHost: () => void;
   onNavigate: (s: ScreenName) => void;
 }) {
-  const [fav, setFav] = useState(false);
   const [joined, setJoined] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const notify = useToast();
@@ -57,12 +60,15 @@ export function EventDetailScreen({
       <div className="detail-cover">
         <StripePlaceholder className="detail-cover__stripes" />
         <button
-          className={`round-btn detail-cover__fav ${fav ? "round-btn--on" : ""}`}
-          aria-pressed={fav}
-          aria-label="Save event"
-          onClick={() => setFav((v) => !v)}
+          className={`round-btn detail-cover__fav ${liked ? "round-btn--on" : ""}`}
+          aria-pressed={liked}
+          aria-label={liked ? "Unlike event" : "Like event"}
+          onClick={() => {
+            onToggleLiked();
+            notify(liked ? "Removed from your liked events" : "Added to Profile → Liked");
+          }}
         >
-          <Heart size={20} strokeWidth={2.2} fill={fav ? "currentColor" : "none"} />
+          <Heart size={20} strokeWidth={2.2} fill={liked ? "currentColor" : "none"} />
         </button>
       </div>
 
