@@ -52,6 +52,15 @@ a {
   text-decoration: none;
 }
 
+/* Headings use Josefin Sans (max weight 700). */
+h1, h2, h3, h4, h5, h6,
+.brand,
+.auth-hero__top {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
 /* ---- Page container ---- */
 .page {
   max-width: var(--content-w);
@@ -72,9 +81,7 @@ a {
 }
 
 .page-title {
-  font-size: clamp(26px, 3vw, 34px);
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: clamp(30px, 3.4vw, 38px);
   margin: 0 0 4px;
 }
 .page-sub {
@@ -92,9 +99,7 @@ a {
 }
 
 .section-title {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 21px;
   margin: 0;
 }
 

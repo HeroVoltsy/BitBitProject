@@ -37,9 +37,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 900;
-  font-size: 19px;
-  letter-spacing: -0.02em;
+  font-size: 21px;
 }
 .brand__mark {
   display: grid;
@@ -462,10 +460,8 @@
   padding: 16px;
 }
 .eventcard__title {
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 19px;
   margin: 0;
-  letter-spacing: -0.01em;
 }
 .metarow {
   display: flex;
@@ -1114,8 +1110,7 @@
   margin-bottom: 6px;
 }
 .identity-card__name {
-  font-size: 20px;
-  font-weight: 900;
+  font-size: 23px;
   margin: 0;
 }
 .organizer-tools {
@@ -1151,8 +1146,7 @@
 }
 .qr-card__text h3 {
   margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 20px;
 }
 .qr-card__id {
   display: inline-block;
@@ -1253,9 +1247,7 @@
   margin-bottom: 12px;
 }
 .detail-title {
-  font-size: clamp(24px, 3vw, 30px);
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: clamp(28px, 3.4vw, 34px);
   margin: 0 0 6px;
 }
 .detail-host {
@@ -1287,9 +1279,7 @@
   margin-bottom: 10px;
 }
 .host-name {
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+  font-size: 27px;
   margin: 0;
 }
 .host-role {
@@ -1443,8 +1433,8 @@
 }
 .detail-about {
   line-height: 1.65;
-  font-weight: 500;
-  font-size: 15.5px;
+  font-weight: 400;
+  font-size: 16px;
   color: #58534f;
   margin: 0;
 }
@@ -1526,8 +1516,7 @@
   background: var(--surface-alt);
 }
 .qr-modal__title {
-  font-size: 20px;
-  font-weight: 900;
+  font-size: 23px;
   margin: 0 0 4px;
 }
 .qr-modal__sub {
@@ -1780,8 +1769,7 @@
   margin-bottom: 22px;
 }
 .settings-group__title {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
@@ -1883,9 +1871,7 @@ button.setting-row:hover {
   display: flex;
   align-items: center;
   gap: 14px;
-  font-size: clamp(24px, 2.4vw, 32px);
-  font-weight: 900;
-  letter-spacing: 0;
+  font-size: clamp(26px, 2.6vw, 34px);
 }
 .auth-hero__mark {
   width: 48px;
@@ -1938,10 +1924,8 @@ button.setting-row:hover {
   max-width: 420px;
 }
 .auth-hero__headline {
-  font-size: clamp(28px, 3.4vw, 40px);
-  font-weight: 900;
+  font-size: clamp(32px, 3.8vw, 46px);
   line-height: 1.1;
-  letter-spacing: 0;
   text-align: center;
   margin: -32px auto 48px;
 }
@@ -2005,9 +1989,7 @@ button.setting-row:hover {
   gap: 16px;
 }
 .auth-card__title {
-  font-size: clamp(23px, 2.1vw, 26px);
-  font-weight: 900;
-  letter-spacing: 0;
+  font-size: clamp(26px, 2.4vw, 30px);
   margin: 0 0 6px;
 }
 .auth-card__sub {
@@ -2323,7 +2305,7 @@ button.setting-row:hover {
     gap: 22px;
   }
   .auth-hero__top {
-    font-size: 24px;
+    font-size: 26px;
   }
   .auth-hero__mark {
     width: 42px;
@@ -2340,7 +2322,7 @@ button.setting-row:hover {
     max-width: 620px;
   }
   .auth-hero__headline {
-    font-size: 26px;
+    font-size: 30px;
     margin: 0 auto 10px;
   }
   .auth-hero__lead {
@@ -2414,7 +2396,7 @@ button.setting-row:hover {
   }
   .auth-hero__top {
     gap: 10px;
-    font-size: 21px;
+    font-size: 23px;
   }
   .auth-hero__mark {
     width: 36px;
@@ -2425,7 +2407,7 @@ button.setting-row:hover {
     display: none;
   }
   .auth-hero__headline {
-    font-size: 24px;
+    font-size: 28px;
     line-height: 1.15;
   }
   .auth-hero__lead {
