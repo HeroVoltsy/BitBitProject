@@ -29,6 +29,7 @@ export function EventDetailScreen({
   const notify = useToast();
 
   const attending = Boolean(event.attending) || joined;
+  const [dateText, timeText] = event.dateLine.split(" · ");
 
   // Close the QR overlay on Escape.
   useEffect(() => {
@@ -83,8 +84,8 @@ export function EventDetailScreen({
               <CalendarDays size={20} strokeWidth={2} />
             </span>
             <span className="info-stack">
-              <strong>Sunday, August 23, 2026</strong>
-              <span className="muted">10:00 AM - 2:00 PM</span>
+              <strong>{dateText}</strong>
+              {timeText && <span className="muted">{timeText}</span>}
             </span>
           </div>
           <div className="info-divider" />
@@ -94,7 +95,7 @@ export function EventDetailScreen({
             </span>
             <span className="info-stack">
               <strong>{event.location}</strong>
-              <span className="muted">Centro, Naga City, Camarines Sur</span>
+              <span className="muted">Naga City, Camarines Sur</span>
             </span>
             <button className="directions" onClick={handleDirections}>
               <Navigation size={15} strokeWidth={2.2} /> Directions

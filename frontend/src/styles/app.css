@@ -1476,6 +1476,91 @@
 .host-stats--last {
   margin-bottom: 4px;
 }
+.host-stat--link {
+  border: 1px solid transparent;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+.host-stat--link:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+  transform: translateY(-1px);
+}
+.host-stat--link:hover span {
+  color: var(--green-dark);
+}
+
+/* Organized events + followers lists (from Profile) */
+.list-sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.list-sub__star {
+  color: #e0a417;
+}
+.rating-row__none {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+.followers-search {
+  max-width: none;
+  margin-bottom: 18px;
+}
+.follower-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+}
+.follower-row__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.follower-row__info strong {
+  font-size: 15px;
+}
+.follower-row__info .muted {
+  font-size: 13px;
+  font-weight: 600;
+}
+.follower-row__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--green);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 800;
+  transition: background 0.16s ease, filter 0.16s ease;
+}
+.follower-row__btn:hover {
+  filter: brightness(1.08);
+}
+.follower-row__btn--on {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+.follower-row__btn--on:hover {
+  filter: brightness(0.96);
+}
+@media (max-width: 480px) {
+  .follower-row {
+    gap: 10px;
+    padding: 12px;
+  }
+  .follower-row__btn {
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
+}
 
 /* Attendance QR modal */
 .qr-modal {
@@ -1839,6 +1924,111 @@ button.setting-row:hover {
   margin-top: 16px;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Legal pages (Terms, Privacy Policy, Community By-laws)
+   --------------------------------------------------------------------------- */
+.legal-summary,
+.legal-toc,
+.legal-body {
+  padding: 24px 28px;
+  margin-bottom: 18px;
+}
+.legal-summary {
+  background: var(--green-soft);
+  border-color: transparent;
+}
+.legal-summary__title,
+.legal-toc__title {
+  font-size: 19px;
+  margin: 0 0 12px;
+}
+.legal-summary ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+.legal-summary p {
+  margin: 0;
+  font-size: 13.5px;
+}
+.legal-toc ol {
+  margin: 0;
+  padding-left: 22px;
+  columns: 2;
+  column-gap: 28px;
+  line-height: 1.9;
+  font-size: 14.5px;
+  color: var(--text-muted);
+}
+.legal-toc button {
+  padding: 0;
+  text-align: left;
+  font-weight: 600;
+  color: var(--green-dark);
+}
+.legal-toc button:hover {
+  text-decoration: underline;
+}
+.legal-section {
+  scroll-margin-top: calc(var(--nav-h) + 20px);
+}
+.legal-section + .legal-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.legal-section__title {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+.legal-section p,
+.legal-section ul,
+.legal-section ol {
+  margin: 0 0 12px;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+.legal-section ul,
+.legal-section ol {
+  padding-left: 22px;
+}
+.legal-section li + li {
+  margin-top: 4px;
+}
+.legal-section > :last-child {
+  margin-bottom: 0;
+}
+.legal-related {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.legal-related__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  transition: border-color 0.16s ease;
+}
+.legal-related__link:hover {
+  border-color: var(--border-strong);
+}
+@media (max-width: 560px) {
+  .legal-related {
+    grid-template-columns: 1fr;
+  }
+  .legal-summary,
+  .legal-toc,
+  .legal-body {
+    padding: 20px;
+  }
+  .legal-toc ol {
+    columns: 1;
+  }
 }
 
 /* ---------------------------------------------------------------------------

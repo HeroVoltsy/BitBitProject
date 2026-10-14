@@ -16,7 +16,7 @@ export function MapScreen({
   onOpenEvent,
   onNavigate,
 }: {
-  onOpenEvent: () => void;
+  onOpenEvent: (title?: string) => void;
   onNavigate: (s: ScreenName) => void;
 }) {
   const notify = useToast();
@@ -41,7 +41,7 @@ export function MapScreen({
               className="map-pin-marker"
               style={p}
               aria-label={`Event location ${i + 1}`}
-              onClick={onOpenEvent}
+              onClick={() => onOpenEvent()}
             >
               <MapPin size={26} strokeWidth={2.5} fill="currentColor" />
             </button>
@@ -57,7 +57,7 @@ export function MapScreen({
           </div>
           <div className="stack">
             {MAP_CARDS.map((c) => (
-              <button className="map-mini card" key={c.title} onClick={onOpenEvent}>
+              <button className="map-mini card" key={c.title} onClick={() => onOpenEvent(c.title)}>
                 <div className="map-mini__head">
                   <CategoryBadge category={c.category} />
                 </div>

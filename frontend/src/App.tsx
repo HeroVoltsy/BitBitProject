@@ -12,17 +12,30 @@ import { HostProfileScreen } from "./screens/HostProfileScreen";
 import { QrScannerScreen } from "./screens/QrScannerScreen";
 import { AttendanceScreen } from "./screens/AttendanceScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { TermsScreen } from "./screens/TermsScreen";
+import { PrivacyScreen } from "./screens/PrivacyScreen";
+import { BylawsScreen } from "./screens/BylawsScreen";
+import { OrganizedEventsScreen } from "./screens/OrganizedEventsScreen";
+import { FollowersScreen } from "./screens/FollowersScreen";
 import { FEED_EVENTS } from "./data/events";
 import { useAuth } from "./useAuth";
 import { ToastProvider } from "./components/Toast";
 import type { EventItem, ScreenName } from "./types";
+
+// Screens that can open an event detail, and the label of the detail's Back button.
+type EventOrigin = "home" | "profile" | "organized-events";
+const BACK_LABELS: Record<EventOrigin, string> = {
+  home: "Back to events",
+  profile: "Back to profile",
+  "organized-events": "Back to your events",
+};
 
 export default function App() {
   const { session, login, logout } = useAuth();
   const [screen, setScreen] = useState<ScreenName>("home");
   const [activeEvent, setActiveEvent] = useState<EventItem>(FEED_EVENTS[0]);
   // Where the event detail's Back button returns to (the screen that opened it).
-  const [eventOrigin, setEventOrigin] = useState<"home" | "profile">("home");
+  const [eventOrigin, setEventOrigin] = useState<EventOrigin>("home");
   // Kept here so returning to Profile restores the Organizer/Attendee tab.
   const [profileTab, setProfileTab] = useState<"attendee" | "organizer">("organizer");
   const [dark, setDark] = useState<boolean>(() => {
@@ -50,12 +63,19 @@ export default function App() {
   }, []);
 
   const openEvent = useCallback(
-    (event: EventItem, origin: "home" | "profile" = "home") => {
+    (event: EventItem, origin: EventOrigin = "home") => {
       setActiveEvent(event);
       setEventOrigin(origin);
       navigate("event-detail");
     },
     [navigate]
+  );
+
+  // Schedule and Explore only know an event's (sometimes shortened) title.
+  const openEventByTitle = useCallback(
+    (title?: string) =>
+      openEvent((title && FEED_EVENTS.find((e) => e.title.includes(title))) || FEED_EVENTS[0]),
+    [openEvent]
   );
 
   const handleLogout = useCallback(() => {
@@ -77,9 +97,9 @@ export default function App() {
         {screen === "hosted" && (
           <HostedEventsScreen onOpenEvent={openEvent} onBack={() => navigate("home")} />
         )}
-        {screen === "calendar" && <CalendarScreen onOpenEvent={() => openEvent(FEED_EVENTS[0])} />}
+        {screen === "calendar" && <CalendarScreen onOpenEvent={openEventByTitle} />}
         {screen === "map" && (
-          <MapScreen onOpenEvent={() => openEvent(FEED_EVENTS[0])} onNavigate={navigate} />
+          <MapScreen onOpenEvent={openEventByTitle} onNavigate={navigate} />
         )}
         {screen === "create-event" && <CreateEventScreen onNavigate={navigate} />}
         {screen === "profile" && (
@@ -94,7 +114,7 @@ export default function App() {
           <EventDetailScreen
             event={activeEvent}
             onBack={() => navigate(eventOrigin)}
-            backLabel={eventOrigin === "profile" ? "Back to profile" : "Back to events"}
+            backLabel={BACK_LABELS[eventOrigin]}
             onOpenHost={() => navigate("host-profile")}
             onNavigate={navigate}
           />
@@ -113,6 +133,16 @@ export default function App() {
             onToggleDark={() => setDark((v) => !v)}
           />
         )}
+        {screen === "terms" && <TermsScreen onNavigate={navigate} />}
+        {screen === "privacy" && <PrivacyScreen onNavigate={navigate} />}
+        {screen === "bylaws" && <BylawsScreen onNavigate={navigate} />}
+        {screen === "organized-events" && (
+          <OrganizedEventsScreen
+            onBack={() => navigate("profile")}
+            onOpenEvent={(e) => openEvent(e, "organized-events")}
+          />
+        )}
+        {screen === "followers" && <FollowersScreen onBack={() => navigate("profile")} />}
       </main>
 
       <footer className="app-footer">

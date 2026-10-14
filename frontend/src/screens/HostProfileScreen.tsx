@@ -1,17 +1,14 @@
 import { useState } from "react";
 import { ArrowLeft, Star, UserPlus, UserCheck } from "lucide-react";
 import { EventCard } from "../components/EventCard";
-import { FEED_EVENTS, USER } from "../data/events";
+import { HOST_STATS, ORGANIZED_EVENTS, USER } from "../data/events";
 import type { EventItem } from "../types";
 
-// Public host stats (demo data).
+// Public host details (demo data); counts and ratings come from HOST_STATS.
 const HOST = {
+  ...HOST_STATS,
   role: "Community Organizer",
   location: "Naga City, Camarines Sur",
-  hosted: 24,
-  baseFollowers: 312,
-  rating: 4.8,
-  reviews: 57,
 };
 
 export function HostProfileScreen({
@@ -25,8 +22,7 @@ export function HostProfileScreen({
   const [myRating, setMyRating] = useState(0);
   const [hover, setHover] = useState(0);
 
-  const hostedEvents = FEED_EVENTS.filter((e) => e.hosting);
-  const followers = HOST.baseFollowers + (following ? 1 : 0);
+  const followers = HOST.followers + (following ? 1 : 0);
 
   return (
     <div className="page page--narrow">
@@ -52,7 +48,7 @@ export function HostProfileScreen({
             <span>Followers</span>
           </div>
           <div className="host-stat">
-            <strong>{HOST.rating}</strong>
+            <strong>{HOST.rating.toFixed(1)}</strong>
             <span>Rating</span>
           </div>
         </div>
@@ -120,7 +116,7 @@ export function HostProfileScreen({
       <section className="block">
         <h2 className="section-title block__title">Events by {USER.firstName}</h2>
         <div className="feed-grid">
-          {hostedEvents.map((e) => (
+          {ORGANIZED_EVENTS.map((e) => (
             <EventCard key={e.id} event={e} onOpen={() => onOpenEvent(e)} />
           ))}
         </div>

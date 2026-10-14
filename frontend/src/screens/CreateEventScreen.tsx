@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Plus, MapPin, Check, ImagePlus } from "lucide-react";
 import { CATEGORIES } from "../data/events";
 import { DatePicker } from "../components/DatePicker";
@@ -13,12 +13,20 @@ export function CreateEventScreen({ onNavigate }: { onNavigate: (s: ScreenName) 
   const [cover, setCover] = useState(false);
   const [promote, setPromote] = useState(true);
   const [posted, setPosted] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Return to the feed after showing the confirmation state (cancelled if the user leaves first).
+  useEffect(() => {
+    if (!posted) return;
+    const t = window.setTimeout(() => onNavigate("home"), 1100);
+    return () => window.clearTimeout(t);
+  }, [posted, onNavigate]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    setSubmitted(true);
+    if (!date || !time) return;
     setPosted(true);
-    // Return to the feed after showing the confirmation state.
-    window.setTimeout(() => onNavigate("home"), 1100);
   };
 
   return (
@@ -48,9 +56,11 @@ export function CreateEventScreen({ onNavigate }: { onNavigate: (s: ScreenName) 
         <div className="form-row">
           <Field label="Date">
             <DatePicker value={date} onChange={setDate} placeholder="Pick a date" />
+            {submitted && !date && <span className="auth-error">Pick a date for your event.</span>}
           </Field>
           <Field label="Time">
             <TimePicker value={time} onChange={setTime} placeholder="Pick a time" />
+            {submitted && !time && <span className="auth-error">Pick a start time.</span>}
           </Field>
         </div>
 

@@ -18,7 +18,7 @@ const STATUS_CLASS: Record<EventStatus, string> = {
 // Year range offered by the "Jump to" filter.
 const THIS_YEAR = new Date().getFullYear();
 
-export function CalendarScreen({ onOpenEvent }: { onOpenEvent: () => void }) {
+export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) => void }) {
   // Default to a month/day that has events so the list isn't empty on first load.
   const [view, setView] = useState({ year: 2026, month: 7 }); // August 2026
   const [selected, setSelected] = useState<number | null>(23);
@@ -151,7 +151,7 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: () => void }) {
             ) : (
               <div className="stack">
                 {dayEvents.map((e) => (
-                  <button className="cal-event card" key={e.title} onClick={onOpenEvent}>
+                  <button className="cal-event card" key={e.title} onClick={() => onOpenEvent(e.title)}>
                     <span className="cal-event__main">
                       <span className="cal-event__top">
                         <CategoryBadge category={e.category} />

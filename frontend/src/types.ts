@@ -18,7 +18,12 @@ export type ScreenName =
   | "event-detail"
   | "qr-scanner"
   | "attendance"
-  | "settings";
+  | "settings"
+  | "terms"
+  | "privacy"
+  | "bylaws"
+  | "organized-events"
+  | "followers";
 
 export interface EventItem {
   id: string;

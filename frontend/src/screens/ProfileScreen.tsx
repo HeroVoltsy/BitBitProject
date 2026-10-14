@@ -1,6 +1,7 @@
 import { Settings, QrCode, Star } from "lucide-react";
+import { RatingRow } from "../components/RatingRow";
 import { ScheduleItem } from "../components/ScheduleItem";
-import { FEED_EVENTS, GOING_LIST, HOST_STATS, HOSTED_RATINGS, USER } from "../data/events";
+import { FEED_EVENTS, GOING_LIST, HOST_STATS, ORGANIZED_EVENTS, USER } from "../data/events";
 import type { EventItem, ScreenName } from "../types";
 
 export function ProfileScreen({
@@ -15,7 +16,6 @@ export function ProfileScreen({
   onTabChange: (t: "attendee" | "organizer") => void;
 }) {
 
-  const hostedEvent = FEED_EVENTS.find((e) => e.hosting) ?? FEED_EVENTS[0];
   const attendingEvent = FEED_EVENTS.find((e) => e.attending) ?? FEED_EVENTS[0];
   // Match a going-list entry to the real event so its detail opens correctly.
   const openGoing = (title: string) =>
@@ -38,14 +38,22 @@ export function ProfileScreen({
 
           {/* Followers + reputation */}
           <div className="host-stats host-stats--last">
-            <div className="host-stat">
+            <button
+              className="host-stat host-stat--link"
+              onClick={() => onNavigate("organized-events")}
+              aria-label={`${HOST_STATS.hosted} events organized. View all`}
+            >
               <strong>{HOST_STATS.hosted}</strong>
               <span>Events</span>
-            </div>
-            <div className="host-stat">
+            </button>
+            <button
+              className="host-stat host-stat--link"
+              onClick={() => onNavigate("followers")}
+              aria-label={`${HOST_STATS.followers} followers. View all`}
+            >
               <strong>{HOST_STATS.followers}</strong>
               <span>Followers</span>
-            </div>
+            </button>
             <div className="host-stat">
               <strong className="host-stat__rating">
                 <Star size={15} strokeWidth={2} fill="currentColor" /> {HOST_STATS.rating.toFixed(1)}
@@ -88,32 +96,13 @@ export function ProfileScreen({
             <h2 className="section-title">Ratings on your events</h2>
             <span className="ratings-avg">
               <Star size={16} strokeWidth={2} fill="currentColor" />
-              {HOST_STATS.rating.toFixed(1)} avg · {HOST_STATS.reviews} reviews
+              {HOST_STATS.rating.toFixed(1)} avg · {HOST_STATS.reviews} reviews across{" "}
+              {HOST_STATS.hosted} events
             </span>
           </div>
           <div className="stack">
-            {HOSTED_RATINGS.map((e) => (
-              <button className="rating-row card" key={e.title} onClick={() => onOpenEvent(hostedEvent)}>
-                <span className="rating-row__info">
-                  <strong>{e.title}</strong>
-                  <span className="muted">{e.date}</span>
-                </span>
-                <span className="rating-row__score">
-                  <span className="stars">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <Star
-                        key={n}
-                        size={15}
-                        strokeWidth={2}
-                        fill={Math.round(e.rating) >= n ? "currentColor" : "none"}
-                      />
-                    ))}
-                  </span>
-                  <span className="rating-row__val">
-                    {e.rating.toFixed(1)} <span className="muted">({e.reviews})</span>
-                  </span>
-                </span>
-              </button>
+            {ORGANIZED_EVENTS.map((e) => (
+              <RatingRow key={e.id} event={e} onOpen={() => onOpenEvent(e)} />
             ))}
           </div>
         </section>
