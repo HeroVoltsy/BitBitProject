@@ -84,8 +84,11 @@ export function AuthScreen({ onAuthenticated }: { onAuthenticated: (s: Session) 
         <div className="auth-hero__art">
           {artOk ? (
             <img
-              src="/parrot.png"
-              alt="Sali Ka parrot"
+              src="/sali-ka-logo.png"
+              className="auth-hero__logo"
+              alt="Sali Ka logo"
+              width={1450}
+              height={1085}
               onError={() => setArtOk(false)}
             />
           ) : (
