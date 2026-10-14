@@ -1,19 +1,24 @@
-import { Settings, QrCode, Star } from "lucide-react";
+import { Settings, QrCode, Star, Heart } from "lucide-react";
+import { EventCard } from "../components/EventCard";
 import { RatingRow } from "../components/RatingRow";
 import { ScheduleItem } from "../components/ScheduleItem";
 import { FEED_EVENTS, GOING_LIST, HOST_STATS, ORGANIZED_EVENTS, USER } from "../data/events";
-import type { EventItem, ScreenName } from "../types";
+import type { EventItem, ProfileTab, ScreenName } from "../types";
 
 export function ProfileScreen({
   onNavigate,
   onOpenEvent,
   tab,
   onTabChange: setTab,
+  likedEvents,
+  onToggleLiked,
 }: {
   onNavigate: (s: ScreenName) => void;
   onOpenEvent: (e: EventItem) => void;
-  tab: "attendee" | "organizer";
-  onTabChange: (t: "attendee" | "organizer") => void;
+  tab: ProfileTab;
+  onTabChange: (t: ProfileTab) => void;
+  likedEvents: EventItem[];
+  onToggleLiked: (id: string) => void;
 }) {
 
   const attendingEvent = FEED_EVENTS.find((e) => e.attending) ?? FEED_EVENTS[0];
@@ -88,6 +93,12 @@ export function ProfileScreen({
         >
           Attendee
         </button>
+        <button
+          className={`segmented__tab ${tab === "liked" ? "segmented__tab--active" : ""}`}
+          onClick={() => setTab("liked")}
+        >
+          Liked{likedEvents.length > 0 && <span className="segmented__count">{likedEvents.length}</span>}
+        </button>
       </div>
 
       {tab === "organizer" ? (
@@ -105,6 +116,31 @@ export function ProfileScreen({
               <RatingRow key={e.id} event={e} onOpen={() => onOpenEvent(e)} />
             ))}
           </div>
+        </section>
+      ) : tab === "liked" ? (
+        <section className="block">
+          <h2 className="section-title block__title">Events you liked</h2>
+          {likedEvents.length > 0 ? (
+            <div className="feed-grid">
+              {likedEvents.map((e) => (
+                <EventCard
+                  key={e.id}
+                  event={e}
+                  onOpen={() => onOpenEvent(e)}
+                  liked
+                  onToggleLiked={() => onToggleLiked(e.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="liked-empty card">
+              <Heart size={28} strokeWidth={2} />
+              <strong>No liked events yet</strong>
+              <span className="muted">
+                Tap the heart on any event to save it here, so you can find it again later.
+              </span>
+            </div>
+          )}
         </section>
       ) : (
         <section className="block">

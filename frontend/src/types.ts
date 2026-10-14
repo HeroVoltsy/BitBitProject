@@ -25,6 +25,9 @@ export type ScreenName =
   | "organized-events"
   | "followers";
 
+/** Tabs on the Profile screen. */
+export type ProfileTab = "organizer" | "attendee" | "liked";
+
 export interface EventItem {
   id: string;
   title: string;

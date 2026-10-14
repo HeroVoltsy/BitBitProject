@@ -308,3 +308,8 @@ export const HOST_STATS = {
     ? RATED.reduce((sum, e) => sum + e.rating * e.reviews, 0) / TOTAL_REVIEWS
     : 0,
 };
+
+/** Look up any known event (feed or organized) by id. */
+export function findEvent(id: string): EventItem | undefined {
+  return FEED_EVENTS.find((e) => e.id === id) ?? ORGANIZED_EVENTS.find((e) => e.id === id);
+}

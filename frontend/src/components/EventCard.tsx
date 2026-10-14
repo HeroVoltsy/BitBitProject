@@ -1,11 +1,42 @@
-import { Clock, MapPin } from "lucide-react";
+import { Clock, Heart, MapPin } from "lucide-react";
 import type { EventItem } from "../types";
 import { CategoryBadge } from "./CategoryBadge";
 import { StripePlaceholder } from "./StripePlaceholder";
 import { AvatarGroup } from "./Avatar";
 
-/** Full event card used in the Home feed ("Events Around You"). */
-export function EventCard({ event, onOpen }: { event: EventItem; onOpen: () => void }) {
+/**
+ * Full event card used in the Home feed ("Events Around You").
+ * Pass onToggleLiked to show a heart for liking the event without opening it.
+ */
+export function EventCard({
+  event,
+  onOpen,
+  liked = false,
+  onToggleLiked,
+}: {
+  event: EventItem;
+  onOpen: () => void;
+  liked?: boolean;
+  onToggleLiked?: () => void;
+}) {
+  if (!onToggleLiked) return <CardButton event={event} onOpen={onOpen} />;
+  return (
+    <div className="eventcard-wrap">
+      <CardButton event={event} onOpen={onOpen} />
+      <button
+        type="button"
+        className={`eventcard__like ${liked ? "eventcard__like--on" : ""}`}
+        aria-pressed={liked}
+        aria-label={liked ? `Unlike ${event.title}` : `Like ${event.title}`}
+        onClick={onToggleLiked}
+      >
+        <Heart size={18} strokeWidth={2.2} fill={liked ? "currentColor" : "none"} />
+      </button>
+    </div>
+  );
+}
+
+function CardButton({ event, onOpen }: { event: EventItem; onOpen: () => void }) {
   return (
     <button className="eventcard" onClick={onOpen} aria-label={`Open ${event.title}`}>
       <div className="eventcard__cover">
