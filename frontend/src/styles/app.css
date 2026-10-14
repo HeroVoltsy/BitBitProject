@@ -1871,7 +1871,7 @@ button.setting-row:hover {
   justify-content: space-between;
   gap: 44px;
   min-height: 100dvh;
-  padding: clamp(32px, 5vw, 60px) clamp(28px, 4.4vw, 56px) clamp(28px, 4vw, 48px);
+  padding: clamp(20px, 2.5vw, 32px) clamp(28px, 4.4vw, 56px) clamp(28px, 4vw, 48px);
   color: #f4f8f5;
   background:
     radial-gradient(600px 400px at 12% 8%, rgba(255, 255, 255, 0.14), transparent 60%),
@@ -1931,6 +1931,10 @@ button.setting-row:hover {
 }
 .auth-hero__body {
   position: relative;
+}
+.auth-hero__headline,
+.auth-hero__lead,
+.auth-hero__points {
   max-width: 420px;
 }
 .auth-hero__headline {
@@ -1938,7 +1942,8 @@ button.setting-row:hover {
   font-weight: 900;
   line-height: 1.1;
   letter-spacing: 0;
-  margin: 0 0 16px;
+  text-align: center;
+  margin: -32px auto 48px;
 }
 .auth-hero__lead {
   font-size: 16px;
@@ -2329,12 +2334,14 @@ button.setting-row:hover {
     max-width: 210px;
     max-height: 22dvh;
   }
-  .auth-hero__body {
+  .auth-hero__headline,
+  .auth-hero__lead,
+  .auth-hero__points {
     max-width: 620px;
   }
   .auth-hero__headline {
     font-size: 26px;
-    margin-bottom: 10px;
+    margin: 0 auto 10px;
   }
   .auth-hero__lead {
     margin-bottom: 20px;
@@ -2435,12 +2442,13 @@ button.setting-row:hover {
   }
   .auth-card__head {
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
   }
   .auth-card__sub {
-    margin-bottom: 16px;
+    margin-bottom: 0;
   }
   .auth-seg {
+    margin-top: 22px;
     margin-bottom: 16px;
   }
   .auth-form {
