@@ -3,6 +3,7 @@ import { ArrowLeft, Star, UserPlus, UserCheck } from "lucide-react";
 import { EventCard } from "../components/EventCard";
 import { HOST_STATS, ORGANIZED_EVENTS, USER } from "../data/events";
 import type { EventItem } from "../types";
+import { useAuthGate } from "../components/AuthGate";
 
 // Public host details (demo data); counts and ratings come from HOST_STATS.
 const HOST = {
@@ -21,6 +22,7 @@ export function HostProfileScreen({
   const [following, setFollowing] = useState(false);
   const [myRating, setMyRating] = useState(0);
   const [hover, setHover] = useState(0);
+  const { requireAuth } = useAuthGate();
 
   const followers = HOST.followers + (following ? 1 : 0);
 
@@ -55,7 +57,9 @@ export function HostProfileScreen({
 
         <button
           className={`follow-btn ${following ? "follow-btn--on" : "btn-primary"}`}
-          onClick={() => setFollowing((v) => !v)}
+          onClick={() =>
+            requireAuth(() => setFollowing((v) => !v), `Log in to follow ${USER.firstName}.`)
+          }
         >
           {following ? (
             <>
@@ -97,7 +101,7 @@ export function HostProfileScreen({
                 aria-label={`${n} star${n > 1 ? "s" : ""}`}
                 onMouseEnter={() => setHover(n)}
                 onMouseLeave={() => setHover(0)}
-                onClick={() => setMyRating(n)}
+                onClick={() => requireAuth(() => setMyRating(n), `Log in to rate ${USER.firstName}.`)}
               >
                 <Star
                   size={28}

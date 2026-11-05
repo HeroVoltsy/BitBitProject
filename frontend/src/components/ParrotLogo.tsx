@@ -10,7 +10,7 @@ export function ParrotLogo({
 }) {
   return (
     <img
-      src="/sali-ka-icon.png"
+      src="/sali-ka-icon.webp"
       width={size}
       height={size}
       className={className}

@@ -2745,3 +2745,1005 @@ button.setting-row:hover {
     max-width: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Sign-in gate (components/AuthGate.tsx)
+   Visitors browse freely; account features open this pop-up.
+   --------------------------------------------------------------------------- */
+.auth-modal {
+  width: min(520px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.auth-modal[open] {
+  animation: page-in 0.2s ease both;
+}
+.auth-modal::backdrop {
+  background: rgba(20, 19, 14, 0.5);
+  backdrop-filter: blur(3px);
+}
+/* Keep the page behind from scrolling while the pop-up is open. */
+:root:has(.auth-modal[open]) {
+  overflow: hidden;
+}
+.auth-modal__body {
+  position: relative;
+  padding: 28px clamp(18px, 4vw, 32px);
+}
+.auth-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-pill);
+  color: var(--text-muted);
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.auth-modal__close:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+.auth-modal .auth-card {
+  max-width: none;
+  animation: none;
+}
+/* Room for the close button beside the title / account toggle. */
+.auth-modal .auth-card__head {
+  padding-right: 44px;
+}
+@media (max-width: 760px) {
+  .auth-modal .auth-card__head {
+    padding-right: 0;
+  }
+  .auth-modal .auth-card__title {
+    padding-right: 44px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-modal[open] {
+    animation: none;
+  }
+}
+
+/* Top-bar Sign Up (signed out, replaces the profile avatar) */
+.topnav__signup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--green);
+  background: var(--surface);
+  color: var(--green-dark);
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.topnav__signup:hover {
+  background: var(--green-soft);
+}
+.topnav__signup:active {
+  transform: translateY(1px);
+}
+
+/* "sasali" — a join button layered over the card's footer */
+.sasali-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.sasali-pill--slot {
+  visibility: hidden;
+}
+.eventcard__sasali {
+  position: absolute;
+  right: 16px; /* matches .eventcard__body padding */
+  bottom: 16px;
+  background: var(--surface);
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.eventcard__sasali:hover {
+  background: var(--green-soft);
+}
+.eventcard__sasali:active {
+  transform: scale(0.96);
+}
+.sasali-pill--on {
+  background: var(--green-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .topnav__signup,
+  .eventcard__sasali {
+    transition: none;
+  }
+}
+
+/* Small phones: tighten the top bar so Sign Up fits without overflow. */
+@media (max-width: 420px) {
+  .topnav__inner {
+    padding: 0 16px;
+    gap: 10px;
+  }
+  .topnav__actions {
+    gap: 6px;
+  }
+  .topnav__signup {
+    padding: 0 12px;
+    font-size: 13.5px;
+  }
+}
+
+/* Tablets: the full link row + actions don't fit below ~960px, so use the
+   burger menu (same rules as the ≤760px phone layout above). */
+.brand__name {
+  white-space: nowrap;
+}
+@media (max-width: 960px) {
+  .topnav__links,
+  .topnav__post span {
+    display: none;
+  }
+  .topnav__post {
+    padding: 12px;
+  }
+  .topnav__burger {
+    display: grid;
+  }
+  .topnav__burger:hover {
+    background: rgba(54, 50, 47, 0.06);
+  }
+  .topnav__mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 16px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .topnav__mobile .navlink {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+/* Small phones: "Post an Event" stays reachable in the burger menu. */
+@media (max-width: 400px) {
+  .topnav__actions > .topnav__post {
+    display: none;
+  }
+}
+@media (max-width: 360px) {
+  .brand {
+    gap: 8px;
+    font-size: 18px;
+  }
+}
+
+/* Guideline fixes for the sign-in gate: touch targets, touch hover, iOS zoom. */
+.topnav__signup,
+.eventcard__sasali,
+.auth-modal__close {
+  touch-action: manipulation;
+}
+.topnav__signup {
+  min-height: 44px;
+}
+.auth-modal__close {
+  width: 44px;
+  height: 44px;
+  top: 12px;
+  right: 12px;
+}
+/* Grow the sasali hit area to 44px tall without changing how it looks. */
+.eventcard__sasali::after {
+  content: "";
+  position: absolute;
+  inset: -7px -4px;
+}
+.auth-modal .auth-card__title,
+.auth-modal .auth-card__sub {
+  text-wrap: balance;
+}
+@media (hover: none) {
+  .topnav__signup:hover,
+  .eventcard__sasali:hover {
+    background: var(--surface);
+  }
+  .sasali-pill--on:hover {
+    background: var(--green-soft);
+  }
+  .auth-modal__close:hover {
+    background: none;
+  }
+}
+/* 16px inputs in the pop-up on phones so iOS doesn't zoom in on focus. */
+@media (max-width: 760px) {
+  .auth-modal .input,
+  .auth-modal .input--icon input {
+    font-size: 16px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Event action bar — "Join This Event" / "Show My QR" pinned to the bottom
+   of the screen on every size, lined up with the event column.
+   --------------------------------------------------------------------------- */
+:root {
+  --action-bar-h: 86px; /* 16px + 54px button + 16px */
+}
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40; /* under the top nav (50), toasts (100) and pop-ups (120+) */
+  padding: 16px 0 calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(250, 249, 243, 0.9);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 20px rgba(54, 50, 47, 0.06);
+}
+[data-theme="dark"] .action-bar {
+  background: rgba(20, 19, 14, 0.9);
+}
+.action-bar__inner {
+  max-width: 720px; /* same as .page--narrow */
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.action-bar .detail-rsvp {
+  margin-top: 0;
+  touch-action: manipulation;
+}
+/* Leave room so the bar never covers the end of the page or the footer. */
+:root:has(.action-bar) .app-footer {
+  padding-bottom: calc(40px + var(--action-bar-h) + env(safe-area-inset-bottom, 0px));
+}
+/* Toasts appear just above the bar instead of on top of it. */
+:root:has(.action-bar) .toast-layer {
+  bottom: calc(var(--action-bar-h) + 12px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 760px) {
+  .action-bar__inner {
+    padding: 0 16px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Brand panel inside the sign-in pop-up (components/BrandPanel.tsx).
+   Reuses the original login page's .auth-hero styles.
+   Laptop/desktop: brand left, form right. Phone/tablet: compact strip on top.
+   --------------------------------------------------------------------------- */
+.auth-modal {
+  width: min(560px, calc(100% - 32px));
+}
+.auth-modal__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.auth-hero--modal {
+  min-height: 0;
+}
+.auth-hero--modal .auth-hero__headline {
+  max-width: none;
+  text-align: left;
+  text-wrap: balance;
+  margin: 0;
+}
+/* The original gradient uses --green-dark, which turns light in dark mode;
+   keep the brand panel and welcome banner deep green in both themes. */
+[data-theme="dark"] .auth-hero,
+[data-theme="dark"] .welcome {
+  background:
+    radial-gradient(600px 400px at 12% 8%, rgba(255, 255, 255, 0.1), transparent 60%),
+    linear-gradient(150deg, #2e7d32 0%, #1b5e20 100%);
+}
+
+@media (min-width: 961px) {
+  .auth-modal {
+    width: min(940px, calc(100% - 48px));
+  }
+  .auth-modal__grid {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+  .auth-hero--modal {
+    justify-content: flex-start;
+    gap: 24px;
+    padding: 32px;
+  }
+  .auth-hero--modal .auth-hero__art img,
+  .auth-hero--modal .auth-hero__art-fallback {
+    max-width: min(260px, 80%);
+    max-height: 200px;
+  }
+  .auth-hero--modal .auth-hero__headline {
+    font-size: clamp(26px, 2.4vw, 32px);
+    margin-bottom: 22px;
+  }
+  .auth-modal__body {
+    align-self: center;
+    padding: 40px 32px;
+  }
+}
+
+@media (max-width: 960px) {
+  .auth-hero--modal {
+    gap: 10px;
+    padding: 18px 20px 20px;
+  }
+  .auth-hero--modal .auth-hero__top {
+    gap: 10px;
+    font-size: 22px;
+    padding-right: 44px; /* room for the close button */
+  }
+  .auth-hero--modal .auth-hero__mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+  }
+  .auth-hero--modal .auth-hero__art {
+    display: none;
+  }
+  .auth-hero--modal .auth-hero__headline {
+    font-size: 21px;
+    line-height: 1.2;
+  }
+  /* Close button sits over the green strip here. */
+  .auth-modal__close {
+    color: #fff;
+  }
+  .auth-modal .auth-card__head,
+  .auth-modal .auth-card__title {
+    padding-right: 0;
+  }
+}
+@media (max-width: 960px) and (hover: hover) {
+  .auth-modal__close:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+  }
+}
+.auth-modal__close:focus-visible {
+  outline-offset: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Welcome banner on Home for signed-out visitors (components/WelcomeBanner.tsx)
+   --------------------------------------------------------------------------- */
+.welcome {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+  padding: clamp(24px, 4vw, 44px);
+  border-radius: var(--r-xl);
+  color: #f4f8f5;
+  background:
+    radial-gradient(600px 400px at 12% 8%, rgba(255, 255, 255, 0.14), transparent 60%),
+    linear-gradient(150deg, var(--green) 0%, var(--green-dark) 100%);
+  overflow: hidden;
+}
+.welcome__text {
+  min-width: 0;
+}
+.welcome__title {
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.1;
+  margin: 0 0 12px;
+  color: #fff;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.welcome__lead {
+  max-width: 46ch;
+  margin: 0 0 22px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: rgba(244, 248, 245, 0.88);
+}
+.welcome__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.welcome__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.welcome__btn--primary {
+  background: #fff;
+  border-color: #fff;
+  color: #1b5e20;
+}
+@media (hover: hover) {
+  .welcome__btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+  .welcome__btn--primary:hover {
+    background: #e9f2e9;
+  }
+}
+.welcome__btn:active {
+  transform: translateY(1px);
+}
+/* The default green focus ring would vanish on the green banner. */
+.welcome__btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+.welcome__art {
+  display: flex;
+  justify-content: center;
+}
+.welcome__logo {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  animation: parrot-float 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome__logo {
+    animation: none;
+  }
+  .welcome__btn {
+    transition: none;
+  }
+}
+@media (max-width: 760px) {
+  .welcome {
+    grid-template-columns: minmax(0, 1fr);
+    margin-bottom: 22px;
+  }
+  .welcome__art {
+    display: none;
+  }
+}
+@media (max-width: 400px) {
+  .welcome__actions {
+    flex-direction: column;
+  }
+  .welcome__btn {
+    width: 100%;
+  }
+}
+/* Pop-up headline is a <p> (the dialog's heading is the form title), so set the heading face. */
+.auth-hero--modal .auth-hero__headline {
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+@media (max-width: 960px) {
+  .auth-modal__close:focus-visible {
+    outline-color: #fff;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Host Dashboard (screens/HostDashboardScreen.tsx) — host/organizer home
+   --------------------------------------------------------------------------- */
+.dash-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.dash-head__text {
+  min-width: 0;
+}
+.dash-head__sub {
+  margin-bottom: 0;
+}
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.dash-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+}
+.dash-stat__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 8px;
+  border-radius: var(--r-md);
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+.dash-stat__value {
+  font-family: var(--font-heading);
+  font-size: clamp(26px, 2.6vw, 32px);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.dash-stat__label {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.dash-event {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+}
+.dash-event__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 64px;
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+.dash-event__month {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--green-dark);
+}
+.dash-event__day {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.dash-event__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.dash-event__title {
+  margin: 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.dash-event__info .muted {
+  font-size: 14px;
+  font-weight: 600;
+}
+.dash-event__going {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+.dash-event__tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dash-event__tools .tool-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+@media (max-width: 960px) {
+  .dash-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dash-event {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .dash-event__tools {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 560px) {
+  .dash-stats {
+    gap: 12px;
+  }
+  .dash-stat {
+    padding: 16px;
+  }
+  .dash-event {
+    padding: 16px;
+    gap: 14px;
+  }
+  .dash-event__tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Settings → switch between attendee and host UI
+   --------------------------------------------------------------------------- */
+.role-switch {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+}
+.role-switch__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+.role-switch__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.role-switch__text .muted {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.role-switch__btn {
+  flex: none;
+  min-height: 46px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+@media (max-width: 560px) {
+  .role-switch {
+    flex-wrap: wrap;
+  }
+  .role-switch__text {
+    flex-basis: calc(100% - 60px);
+  }
+  .role-switch__btn {
+    width: 100%;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Check-in Staff — per-event, scanner-only helpers invited by a host
+   --------------------------------------------------------------------------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Host: Manage Staff pop-up */
+.staff-modal {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.staff-modal[open] {
+  animation: page-in 0.2s ease both;
+}
+.staff-modal::backdrop {
+  background: rgba(20, 19, 14, 0.5);
+  backdrop-filter: blur(3px);
+}
+:root:has(.staff-modal[open]) {
+  overflow: hidden;
+}
+.staff-modal__body {
+  position: relative;
+  padding: 28px clamp(18px, 4vw, 32px);
+}
+.staff-modal .auth-modal__close {
+  color: var(--text-muted);
+}
+.staff-modal__title {
+  margin: 0 0 6px;
+  padding-right: 48px;
+  font-size: clamp(24px, 2.4vw, 28px);
+}
+.staff-modal__sub {
+  margin: 0 0 20px;
+  color: var(--text-muted);
+  font-weight: 600;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.staff-modal__sub strong {
+  color: var(--text);
+}
+.staff-invite {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.staff-invite__btn {
+  align-self: flex-start;
+  min-height: 46px;
+  touch-action: manipulation;
+}
+.staff-list__title {
+  margin: 26px 0 10px;
+  font-size: 17px;
+}
+.staff-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.staff-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.staff-row + .staff-row {
+  border-top: 1px solid var(--border);
+}
+.staff-row__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 13px;
+  font-weight: 800;
+}
+.staff-row__info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.staff-row__info strong,
+.staff-row__info .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.staff-row__info .muted {
+  font-size: 13px;
+  font-weight: 600;
+}
+.staff-chip {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.staff-chip--on {
+  background: var(--green-soft);
+  border-color: transparent;
+  color: var(--green-dark);
+}
+.staff-row__remove {
+  flex: none;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  color: #c0453e;
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: background 0.16s ease;
+}
+.staff-row__remove--confirm {
+  background: #c0453e;
+  color: #fff;
+}
+@media (hover: hover) {
+  .staff-row__remove:not(.staff-row__remove--confirm):hover {
+    background: rgba(192, 69, 62, 0.1);
+  }
+}
+.staff-list__empty {
+  padding: 8px 0 0;
+}
+@media (max-width: 480px) {
+  .staff-row {
+    flex-wrap: wrap;
+  }
+  .staff-row__info {
+    flex-basis: calc(100% - 50px);
+  }
+  .staff-chip {
+    margin-left: 0;
+  }
+  .staff-row__remove {
+    margin-left: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .staff-modal[open] {
+    animation: none;
+  }
+}
+
+/* Staff page: invitations + staff events */
+.staff-block:first-of-type {
+  margin-top: 8px;
+}
+.staff-invite-card,
+.staff-event {
+  padding: 18px 20px;
+}
+.staff-invite-card__lead {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.staff-invite-card__lead strong {
+  color: var(--text);
+}
+.staff-invite-card__title {
+  margin: 0 0 8px;
+  font-size: 19px;
+  overflow-wrap: anywhere;
+}
+.staff-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+.staff-invite-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.staff-invite-card__actions > button {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+.staff-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.staff-event__info {
+  min-width: 0;
+}
+.staff-event__host {
+  display: block;
+  margin-top: 6px;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.staff-event__btn {
+  flex: none;
+  min-height: 46px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+@media (max-width: 560px) {
+  .staff-event {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .staff-invite-card__actions > button {
+    flex: 1;
+  }
+}
+
+/* Staff scanner: event context + check-in count */
+.staff-context {
+  cursor: default;
+}
+.staff-count {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.staff-count__nums {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.staff-count__nums strong {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  color: var(--text);
+}
+.staff-count__bar {
+  display: block;
+  height: 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.staff-count__fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--green);
+  transform-origin: left center;
+  transition: transform 0.25s ease;
+}
+.staff-last {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 24px;
+  margin: 16px 0 0;
+  color: var(--green-dark);
+  font-weight: 800;
+}
+@media (prefers-reduced-motion: reduce) {
+  .staff-count__fill {
+    transition: none;
+  }
+}
+
+/* Bell menu: staff invitation rows are buttons */
+.notif__item--action {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .notif__item--action:hover {
+    background: var(--surface-alt);
+  }
+}

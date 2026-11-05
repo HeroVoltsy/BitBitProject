@@ -8,10 +8,11 @@ import type { EventItem, ProfileTab, ScreenName } from "../types";
 export function ProfileScreen({
   onNavigate,
   onOpenEvent,
-  tab,
+  tab: tabProp,
   onTabChange: setTab,
   likedEvents,
   onToggleLiked,
+  isHost = false,
 }: {
   onNavigate: (s: ScreenName) => void;
   onOpenEvent: (e: EventItem) => void;
@@ -19,7 +20,10 @@ export function ProfileScreen({
   onTabChange: (t: ProfileTab) => void;
   likedEvents: EventItem[];
   onToggleLiked: (id: string) => void;
+  /** Hosts see organizer stats + the Organizer tab; attendees see Going + Liked only. */
+  isHost?: boolean;
 }) {
+  const tab = !isHost && tabProp === "organizer" ? "attendee" : tabProp;
 
   const attendingEvent = FEED_EVENTS.find((e) => e.attending) ?? FEED_EVENTS[0];
   // Match a going-list entry to the real event so its detail opens correctly.
@@ -41,7 +45,8 @@ export function ProfileScreen({
           <h2 className="identity-card__name">{USER.name}</h2>
           <p className="muted">{USER.memberSince}</p>
 
-          {/* Followers + reputation */}
+          {/* Followers + reputation (host UI only) */}
+          {isHost && (
           <div className="host-stats host-stats--last">
             <button
               className="host-stat host-stat--link"
@@ -66,6 +71,7 @@ export function ProfileScreen({
               <span>Rating</span>
             </div>
           </div>
+          )}
         </section>
 
         <section className="qr-card card">
@@ -81,17 +87,19 @@ export function ProfileScreen({
       </div>
 
       <div className="segmented">
-        <button
-          className={`segmented__tab ${tab === "organizer" ? "segmented__tab--active" : ""}`}
-          onClick={() => setTab("organizer")}
-        >
-          Organizer
-        </button>
+        {isHost && (
+          <button
+            className={`segmented__tab ${tab === "organizer" ? "segmented__tab--active" : ""}`}
+            onClick={() => setTab("organizer")}
+          >
+            Organizer
+          </button>
+        )}
         <button
           className={`segmented__tab ${tab === "attendee" ? "segmented__tab--active" : ""}`}
           onClick={() => setTab("attendee")}
         >
-          Attendee
+          {isHost ? "Attendee" : "Going"}
         </button>
         <button
           className={`segmented__tab ${tab === "liked" ? "segmented__tab--active" : ""}`}
