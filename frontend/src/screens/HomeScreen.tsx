@@ -3,6 +3,8 @@ import { Search, SlidersHorizontal, X } from "lucide-react";
 import { EventCard } from "../components/EventCard";
 import { DatePicker } from "../components/DatePicker";
 import { useToast } from "../components/Toast";
+import { useAuthGate } from "../components/AuthGate";
+import { WelcomeBanner } from "../components/WelcomeBanner";
 import { CATEGORIES, FEED_EVENTS } from "../data/events";
 import type { Category, EventItem } from "../types";
 
@@ -16,15 +18,34 @@ export function HomeScreen({
   onOpenEvent,
   likedIds,
   onToggleLiked,
+  isAttending,
+  onJoin,
 }: {
   onOpenEvent: (e: EventItem) => void;
   likedIds: string[];
   onToggleLiked: (id: string) => void;
+  isAttending: (e: EventItem) => boolean;
+  onJoin: (id: string) => void;
 }) {
   const notify = useToast();
-  const toggleLiked = (e: EventItem) => {
-    notify(likedIds.includes(e.id) ? "Removed from your liked events" : "Added to Profile → Liked");
-    onToggleLiked(e.id);
+  const { requireAuth } = useAuthGate();
+
+  const toggleLiked = (e: EventItem) =>
+    requireAuth(() => {
+      notify(likedIds.includes(e.id) ? "Removed from your liked events" : "Added to Profile → Liked");
+      onToggleLiked(e.id);
+    }, "Log in to save events you like.");
+
+  // "sasali" = join straight from the card. Already going → open the event (QR lives there).
+  const sasali = (e: EventItem) => {
+    if (isAttending(e)) {
+      onOpenEvent(e);
+      return;
+    }
+    requireAuth(() => {
+      onJoin(e.id);
+      notify(`You're going to ${e.title}!`);
+    }, `Log in to join ${e.title}.`);
   };
 
   const [active, setActive] = useState<Category | "All">("All");
@@ -63,6 +84,7 @@ export function HomeScreen({
 
   return (
     <div className="page">
+      <WelcomeBanner />
       <div className="home-toolbar">
         <div className="home-search">
           <Search size={18} strokeWidth={2} className="muted" />
@@ -150,6 +172,8 @@ export function HomeScreen({
               onOpen={() => onOpenEvent(e)}
               liked={likedIds.includes(e.id)}
               onToggleLiked={() => toggleLiked(e)}
+              joined={isAttending(e)}
+              onSasali={() => sasali(e)}
             />
           ))}
         </div>

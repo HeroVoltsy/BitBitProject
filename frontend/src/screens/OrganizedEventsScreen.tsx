@@ -13,7 +13,7 @@ export function OrganizedEventsScreen({
   return (
     <div className="page page--narrow">
       <button className="back-link" onClick={onBack}>
-        <ArrowLeft size={18} strokeWidth={2.2} /> Back to profile
+        <ArrowLeft size={18} strokeWidth={2.2} /> Back to dashboard
       </button>
       <h1 className="page-title">Events you've organized</h1>
       <p className="page-sub list-sub">

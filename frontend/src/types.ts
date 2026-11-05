@@ -9,7 +9,6 @@ export type Category =
 
 export type ScreenName =
   | "home"
-  | "hosted"
   | "host-profile"
   | "calendar"
   | "map"
@@ -23,7 +22,11 @@ export type ScreenName =
   | "privacy"
   | "bylaws"
   | "organized-events"
-  | "followers";
+  | "followers"
+  | "liked-events"
+  | "host-dashboard"
+  | "staff"
+  | "staff-scanner";
 
 /** Tabs on the Profile screen. */
 export type ProfileTab = "organizer" | "attendee" | "liked";

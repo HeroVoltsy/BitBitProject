@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Heart, CalendarDays, MapPin, Navigation, QrCode, X, ScanLine, ClipboardList } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ArrowLeft, Heart, CalendarDays, MapPin, Navigation, QrCode, X, ScanLine, ClipboardList, UserCog } from "lucide-react";
 import { StripePlaceholder } from "../components/StripePlaceholder";
 import { CategoryBadge } from "../components/CategoryBadge";
 import { AvatarGroup } from "../components/Avatar";
 import { useToast } from "../components/Toast";
+import { useAuthGate } from "../components/AuthGate";
 import { USER } from "../data/events";
 import type { EventItem, ScreenName } from "../types";
 
@@ -14,24 +16,30 @@ export function EventDetailScreen({
   event,
   liked,
   onToggleLiked,
+  attending,
+  onJoin,
   onBack,
   backLabel,
   onOpenHost,
   onNavigate,
+  onManageStaff,
 }: {
   event: EventItem;
   liked: boolean;
   onToggleLiked: () => void;
+  /** Signed in and going (joined here, via "sasali", or in the sample data). */
+  attending: boolean;
+  onJoin: () => void;
   onBack: () => void;
   backLabel: string;
   onOpenHost: () => void;
   onNavigate: (s: ScreenName) => void;
+  /** Host only: invite/remove Check-in Staff for this event. */
+  onManageStaff?: () => void;
 }) {
-  const [joined, setJoined] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const notify = useToast();
-
-  const attending = Boolean(event.attending) || joined;
+  const { requireAuth } = useAuthGate();
   const [dateText, timeText] = event.dateLine.split(" · ");
 
   // Close the QR overlay on Escape.
@@ -63,10 +71,12 @@ export function EventDetailScreen({
           className={`round-btn detail-cover__fav ${liked ? "round-btn--on" : ""}`}
           aria-pressed={liked}
           aria-label={liked ? "Unlike event" : "Like event"}
-          onClick={() => {
-            onToggleLiked();
-            notify(liked ? "Removed from your liked events" : "Added to Profile → Liked");
-          }}
+          onClick={() =>
+            requireAuth(() => {
+              onToggleLiked();
+              notify(liked ? "Removed from your liked events" : "Added to Profile → Liked");
+            }, "Log in to save events you like.")
+          }
         >
           <Heart size={20} strokeWidth={2.2} fill={liked ? "currentColor" : "none"} />
         </button>
@@ -131,22 +141,41 @@ export function EventDetailScreen({
               <button className="tool-btn" onClick={() => onNavigate("attendance")}>
                 <ClipboardList size={18} strokeWidth={2.2} /> Attendance List
               </button>
+              {onManageStaff && (
+                <button className="tool-btn" onClick={onManageStaff}>
+                  <UserCog size={18} strokeWidth={2.2} aria-hidden="true" /> Manage Staff
+                </button>
+              )}
             </div>
           </div>
-        ) : attending ? (
-          <button className="btn-primary detail-rsvp" onClick={() => setQrOpen(true)}>
-            <QrCode size={18} strokeWidth={2.2} /> Show My QR for Attendance
-          </button>
         ) : (
-          <button
-            className="btn-primary detail-rsvp"
-            onClick={() => {
-              setJoined(true);
-              notify("You're going! Show your QR to check in.");
-            }}
-          >
-            Join This Event
-          </button>
+          // Pinned to the bottom of the screen so the main action stays in reach while scrolling.
+          // Portaled to <body>: the page's entry animation uses transform, which would
+          // otherwise make position: fixed scroll along with the page.
+          createPortal(
+          <div className="action-bar">
+            <div className="action-bar__inner">
+              {attending ? (
+                <button className="btn-primary detail-rsvp" onClick={() => setQrOpen(true)}>
+                  <QrCode size={18} strokeWidth={2.2} aria-hidden="true" /> Show My QR for Attendance
+                </button>
+              ) : (
+                <button
+                  className="btn-primary detail-rsvp"
+                  onClick={() =>
+                    requireAuth(() => {
+                      onJoin();
+                      notify("You're going! Show your QR to check in.");
+                    }, `Log in to join ${event.title}.`)
+                  }
+                >
+                  Join This Event
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body
+          )
         )}
       </div>
 

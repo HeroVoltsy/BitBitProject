@@ -1,8 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Home, CalendarDays, MapPin, CalendarCheck, Bell, Plus, Menu, X } from "lucide-react";
+import {
+  Home,
+  CalendarDays,
+  MapPin,
+  CalendarCheck,
+  Heart,
+  LayoutDashboard,
+  ScanLine,
+  UserCog,
+  Bell,
+  Plus,
+  Menu,
+  X,
+} from "lucide-react";
 import type { ScreenName } from "../types";
 import { initialsOf } from "../useAuth";
 import { ParrotLogo } from "./ParrotLogo";
+import { useAuthGate } from "./AuthGate";
 
 const NOTIFICATIONS = [
   { title: "Naga Sunday Market starts soon", meta: "Today · 10:00 AM · Plaza Rizal" },
@@ -16,25 +30,45 @@ interface NavLink {
   Icon: typeof Home;
 }
 
-const LINKS: NavLink[] = [
+// Attendees (and signed-out visitors) browse and join events.
+const ATTENDEE_LINKS: NavLink[] = [
   { key: "home", label: "Home", Icon: Home },
   { key: "calendar", label: "Schedule", Icon: CalendarDays },
   { key: "map", label: "Explore", Icon: MapPin },
-  { key: "hosted", label: "Hosted Events", Icon: CalendarCheck },
+  { key: "liked-events", label: "Liked Events", Icon: Heart },
+];
+
+// Hosts get an admin-style set of tools instead of the event feed.
+const HOST_LINKS: NavLink[] = [
+  { key: "host-dashboard", label: "Dashboard", Icon: LayoutDashboard },
+  { key: "organized-events", label: "My Events", Icon: CalendarCheck },
+  { key: "qr-scanner", label: "Check-in", Icon: ScanLine },
 ];
 
 export function TopNav({
   active,
   onNavigate,
   userName,
+  isHost = false,
+  hasStaffAccess = false,
+  staffInvites = [],
 }: {
   active: ScreenName;
   onNavigate: (s: ScreenName) => void;
-  userName: string;
+  /** Undefined when signed out — shows a Sign Up button instead of the avatar. */
+  userName?: string;
+  /** Host (organizer) UI: host links + Post an Event. Otherwise the attendee UI. */
+  isHost?: boolean;
+  /** Shows the "Staff" link: the user has a Check-in Staff invite or assignment. */
+  hasStaffAccess?: boolean;
+  /** Pending Check-in Staff invitations, shown at the top of the bell menu. */
+  staffInvites?: { eventTitle: string; invitedBy: string }[];
 }) {
+  const { requireAuth, openAuth } = useAuthGate();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [unread, setUnread] = useState(3);
+  const [seen, setSeen] = useState(false);
+  const unread = seen ? 0 : NOTIFICATIONS.length + staffInvites.length;
   const notifRef = useRef<HTMLDivElement>(null);
 
   const go = (s: ScreenName) => {
@@ -58,22 +92,46 @@ export function TopNav({
     };
   }, [notifOpen]);
 
-  const toggleNotif = () => {
-    setNotifOpen((v) => {
-      const next = !v;
-      if (next) setUnread(0); // opening marks as read
-      return next;
-    });
+  const toggleNotif = () =>
+    requireAuth(() => {
+      setNotifOpen((v) => {
+        const next = !v;
+        if (next) setSeen(true); // opening marks as read
+        return next;
+      });
+    }, "Log in to see your notifications.");
+
+  const postEvent = () => {
+    setOpen(false);
+    requireAuth(() => go("create-event"), "Log in to post an event.");
   };
 
+  const STAFF_LINK: NavLink = { key: "staff", label: "Staff", Icon: UserCog };
+  const links = [...(isHost ? HOST_LINKS : ATTENDEE_LINKS), ...(userName && hasStaffAccess ? [STAFF_LINK] : [])];
+
+  // Liked Events needs an account (likes belong to a user).
+  const openLink = (key: ScreenName) =>
+    key === "liked-events"
+      ? (setOpen(false), requireAuth(() => go(key), "Log in to see your liked events."))
+      : go(key);
+
   // Which top-level tab is highlighted (sub-screens map back to a parent).
-  // Profile / settings / organizer tools aren't nav links, so they highlight nothing.
-  const highlighted: ScreenName = active === "event-detail" ? "home" : active;
+  // Profile / settings aren't nav links, so they highlight nothing.
+  const highlighted: ScreenName =
+    active === "event-detail"
+      ? isHost
+        ? "host-dashboard"
+        : "home"
+      : active === "attendance"
+        ? "qr-scanner"
+        : active === "staff-scanner"
+          ? "staff"
+          : active;
 
   return (
     <header className="topnav">
       <div className="topnav__inner">
-        <button className="brand" onClick={() => go("home")} aria-label="Sali Ka home">
+        <button className="brand" onClick={() => go(isHost ? "host-dashboard" : "home")} aria-label="Sali Ka home">
           <span className="brand__mark">
             <ParrotLogo size={22} />
           </span>
@@ -83,11 +141,11 @@ export function TopNav({
         </button>
 
         <nav className="topnav__links" aria-label="Primary">
-          {LINKS.map(({ key, label, Icon }) => (
+          {links.map(({ key, label, Icon }) => (
             <button
               key={key}
               className={`navlink ${highlighted === key ? "navlink--active" : ""}`}
-              onClick={() => go(key)}
+              onClick={() => openLink(key)}
               aria-current={highlighted === key ? "page" : undefined}
             >
               <Icon size={18} strokeWidth={2.2} />
@@ -105,11 +163,24 @@ export function TopNav({
               onClick={toggleNotif}
             >
               <Bell size={20} strokeWidth={2} />
-              {unread > 0 && <span className="iconbtn__dot">{unread}</span>}
+              {userName && unread > 0 && <span className="iconbtn__dot">{unread}</span>}
             </button>
             {notifOpen && (
               <div className="notif__pop card" role="dialog" aria-label="Notifications">
                 <div className="notif__head">Notifications</div>
+                {staffInvites.map((n) => (
+                  <button
+                    type="button"
+                    className="notif__item notif__item--action"
+                    key={n.eventTitle}
+                    onClick={() => go("staff")}
+                  >
+                    <span className="notif__title">
+                      {n.invitedBy} invited you to be check-in staff for {n.eventTitle}
+                    </span>
+                    <span className="notif__meta">Tap to accept or decline</span>
+                  </button>
+                ))}
                 {NOTIFICATIONS.map((n) => (
                   <div className="notif__item" key={n.title}>
                     <span className="notif__title">{n.title}</span>
@@ -120,14 +191,29 @@ export function TopNav({
             )}
           </div>
 
-          <button className="btn-primary topnav__post" onClick={() => go("create-event")}>
-            <Plus size={18} strokeWidth={2.6} />
-            <span>Post an Event</span>
-          </button>
+          {isHost && (
+            <button className="btn-primary topnav__post" onClick={postEvent}>
+              <Plus size={18} strokeWidth={2.6} aria-hidden="true" />
+              <span>Post an Event</span>
+            </button>
+          )}
 
-          <button className="topnav__avatar" onClick={() => go("profile")} aria-label="Your profile">
-            {initialsOf(userName)}
-          </button>
+          {userName ? (
+            <button className="topnav__avatar" onClick={() => go("profile")} aria-label="Your profile">
+              {initialsOf(userName)}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="topnav__signup"
+              onClick={() => {
+                setOpen(false);
+                openAuth("signup");
+              }}
+            >
+              Sign Up
+            </button>
+          )}
 
           <button
             className="topnav__burger"
@@ -142,20 +228,22 @@ export function TopNav({
 
       {open && (
         <nav className="topnav__mobile" aria-label="Mobile">
-          {LINKS.map(({ key, label, Icon }) => (
+          {links.map(({ key, label, Icon }) => (
             <button
               key={key}
               className={`navlink ${highlighted === key ? "navlink--active" : ""}`}
-              onClick={() => go(key)}
+              onClick={() => openLink(key)}
             >
               <Icon size={18} strokeWidth={2.2} />
               <span>{label}</span>
             </button>
           ))}
-          <button className="btn-primary" onClick={() => go("create-event")}>
-            <Plus size={18} strokeWidth={2.6} />
-            <span>Post an Event</span>
-          </button>
+          {isHost && (
+            <button className="btn-primary" onClick={postEvent}>
+              <Plus size={18} strokeWidth={2.6} aria-hidden="true" />
+              <span>Post an Event</span>
+            </button>
+          )}
         </nav>
       )}
     </header>

@@ -15,10 +15,14 @@ import { useCallback, useState } from "react";
 
 const SESSION_KEY = "salika.session";
 
+/** Which UI the user sees: attendees browse/join events, hosts get the dashboard. */
+export type Role = "attendee" | "host";
+
 export interface Session {
   name: string;
   email: string;
-  guest?: boolean;
+  /** Defaults to "attendee" when missing (e.g. sessions saved before roles existed). */
+  role?: Role;
   accountType?: "personal" | "business";
   businessName?: string;
   businessContact?: string;
@@ -65,5 +69,18 @@ export function useAuth() {
     persist(null);
   }, [persist]);
 
-  return { session, login, logout };
+  /** Switch between the attendee and host UI (Settings → "Sali ka as a host!" / "Sali na!"). */
+  const setRole = useCallback(
+    (role: Role) => {
+      setSession((s) => {
+        if (!s) return s;
+        const next = { ...s, role };
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
+  return { session, login, logout, setRole };
 }
