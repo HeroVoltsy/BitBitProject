@@ -56,7 +56,9 @@ const SECTIONS: LegalSection[] = [
           We do not collect your precise device location unless you choose to allow it, and we do
           not ask for sensitive personal information such as your government ID numbers, health
           records, or religious or political beliefs. Please do not include such information in
-          your profile or event listings.
+          your profile or event listings. The identity verification form currently previews details
+          and images on your device without uploading them; only
+          a per-role demo status is saved in this tab, never your identity details or images.
         </p>
       </>
     ),
