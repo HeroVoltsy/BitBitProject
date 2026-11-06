@@ -7,6 +7,7 @@ import { useAuthGate } from "../components/AuthGate";
 import { WelcomeBanner } from "../components/WelcomeBanner";
 import { CATEGORIES, FEED_EVENTS } from "../data/events";
 import type { Category, EventItem } from "../types";
+import { normalizeDiscoveryProfile, personalizeEvents } from "../discovery";
 
 // Month label (e.g. "AUG") -> 0-indexed month, for matching a picked date.
 const MONTH_IDX: Record<string, number> = {
@@ -20,12 +21,14 @@ export function HomeScreen({
   onToggleLiked,
   isAttending,
   onJoin,
+  discoveryProfile,
 }: {
   onOpenEvent: (e: EventItem) => void;
   likedIds: string[];
   onToggleLiked: (id: string) => void;
   isAttending: (e: EventItem) => boolean;
   onJoin: (id: string) => void;
+  discoveryProfile?: unknown;
 }) {
   const notify = useToast();
   const { requireAuth } = useAuthGate();
@@ -60,7 +63,8 @@ export function HomeScreen({
     []
   );
 
-  const feed = FEED_EVENTS.filter((e) => {
+  const profile = normalizeDiscoveryProfile(discoveryProfile, CATEGORIES);
+  const feed = personalizeEvents(FEED_EVENTS, profile).filter((e) => {
     if (e.hosting) return false; // your own hosted events don't show in the feed
     const q = query.trim().toLowerCase();
     const byCat = active === "All" || e.category === active;
@@ -163,7 +167,7 @@ export function HomeScreen({
       </div>
 
       <section className="block">
-        <h2 className="section-title block__title">Events Around You</h2>
+        <h2 className="section-title block__title">{profile ? "Recommended for you" : "Events Around You"}</h2>
         <div className="feed-grid">
           {feed.map((e) => (
             <EventCard

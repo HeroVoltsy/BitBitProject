@@ -4,6 +4,8 @@ import { ShieldCheck } from "lucide-react";
 import { VerificationScreen } from "./screens/VerificationScreen";
 import { DEMO_KYC_LABELS, getDemoKycStatus } from "./kyc";
 import { HomeScreen } from "./screens/HomeScreen";
+import { JoinerOnboarding } from "./components/JoinerOnboarding";
+import { normalizeDiscoveryProfile } from "./discovery";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { MapScreen } from "./screens/MapScreen";
 import { CreateEventScreen } from "./screens/CreateEventScreen";
@@ -24,7 +26,7 @@ import { StaffScreen } from "./screens/StaffScreen";
 import { StaffScannerScreen } from "./screens/StaffScannerScreen";
 import { ManageStaffDialog } from "./components/ManageStaffDialog";
 import { useStaff } from "./useStaff";
-import { FEED_EVENTS, findEvent } from "./data/events";
+import { CATEGORIES, FEED_EVENTS, findEvent } from "./data/events";
 import { useAuth, type Role } from "./useAuth";
 import { useToast } from "./components/Toast";
 import { ToastProvider } from "./components/Toast";
@@ -64,7 +66,7 @@ const BACK_LABELS: Record<EventOrigin, string> = {
 
 // Two UIs: attendees browse/join events; hosts get an admin-style dashboard.
 // A screen from the other UI falls back to that role's home.
-const ATTENDEE_ONLY = new Set<ScreenName>(["home", "calendar", "map", "liked-events"]);
+const ATTENDEE_ONLY = new Set<ScreenName>(["home", "calendar", "map", "liked-events", "discovery"]);
 const HOST_ONLY = new Set<ScreenName>([
   "host-dashboard",
   "organized-events",
@@ -84,7 +86,7 @@ export default function App() {
 }
 
 function AppShell() {
-  const { session, login, logout, setRole, setDemoKycStatus } = useAuth();
+  const { session, login, logout, setRole, setDemoKycStatus, setDiscoveryProfile } = useAuth();
   const activeRole: Role = session?.role === "host" ? "host" : "attendee";
   const demoKycStatus = getDemoKycStatus(session?.demoKyc, activeRole);
   const notify = useToast();
@@ -205,7 +207,7 @@ function AppShell() {
 
   // Staff and verification pages need an account; the scanner also needs an accepted invite.
   const view: ScreenName =
-    !session && (roleView === "staff" || roleView === "staff-scanner" || roleView === "verification")
+    !session && (roleView === "staff" || roleView === "staff-scanner" || roleView === "verification" || roleView === "discovery")
       ? "home"
       : roleView === "staff-scanner" && !canScan(staffEvent)
         ? "staff"
@@ -253,7 +255,16 @@ function AppShell() {
             onToggleLiked={toggleLiked}
             isAttending={isAttending}
             onJoin={joinEvent}
+            discoveryProfile={session?.discoveryProfile}
           />
+        )}
+        {view === "discovery" && session && !isHost && (
+          <div className="page page--narrow"><div className="card onboarding-settings-card">
+            <JoinerOnboarding key={session.email} titleId="discovery-settings-title" editing
+              initialProfile={normalizeDiscoveryProfile(session.discoveryProfile, CATEGORIES)}
+              onComplete={(profile) => { setDiscoveryProfile(profile); navigate("home"); notify("Your preferences have been updated"); }}
+              onSkip={() => navigate("settings")} />
+          </div></div>
         )}
         {view === "liked-events" && session && (
           <LikedEventsScreen

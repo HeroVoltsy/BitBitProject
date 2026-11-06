@@ -7,6 +7,8 @@ export type Category =
   | "Concert"
   | "Pop-Up";
 
+export type Occupation = "student" | "teacher" | "professional" | "business_owner" | "self_employed" | "other" | "prefer_not_to_say";
+
 export type ScreenName =
   | "home"
   | "host-profile"
@@ -19,6 +21,7 @@ export type ScreenName =
   | "attendance"
   | "settings"
   | "verification"
+  | "discovery"
   | "terms"
   | "privacy"
   | "bylaws"
@@ -43,4 +46,6 @@ export interface EventItem {
   going: number;
   hosting?: boolean;
   attending?: boolean;
+  /** Optional organizer-supplied audience tags for discovery, never attendance restrictions. */
+  audiences?: Occupation[];
 }

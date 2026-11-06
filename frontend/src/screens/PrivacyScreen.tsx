@@ -43,6 +43,12 @@ const SECTIONS: LegalSection[] = [
             ratings and content you post.
           </li>
           <li>
+            <strong>Discovery preferences:</strong> the description you choose for yourself
+            (such as Student or Teacher) and your event interests. You can skip these questions
+            or change your answers in Settings. Answers stay in your current tab and clear
+            when you sign out.
+          </li>
+          <li>
             <strong>Event listings:</strong> the details Hosts provide, such as event titles,
             descriptions, dates, venues, and photos.
           </li>
@@ -72,6 +78,7 @@ const SECTIONS: LegalSection[] = [
         <ul>
           <li>create and manage your account and let you sign in;</li>
           <li>show, host, and manage events, RSVPs, and QR check-ins;</li>
+          <li>suggest events using your chosen interests and description, without using KYC details;</li>
           <li>send you notifications you have turned on, such as event reminders;</li>
           <li>respond to your questions, reports, and requests;</li>
           <li>keep the Service safe, prevent fraud and abuse, and enforce our Terms; and</li>
