@@ -41,8 +41,8 @@ const SECTIONS: LegalSection[] = [
           if you believe your account has been used without your permission.
         </p>
         <p>
-          If you open a Business account, you confirm that you are authorized to act for that
-          business and that its details are true and current.
+          If you provide business details for a Host account, you confirm that you are authorized
+          to act for that business and that its details are true and current.
         </p>
       </>
     ),

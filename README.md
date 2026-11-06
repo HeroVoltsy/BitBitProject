@@ -45,9 +45,10 @@ Built by **BitBit** in Naga City, Camarines Sur. 🇵🇭
 - Keep track of who has arrived with the **Attendance List**.
 - See your hosting history, ratings, and followers on your **Profile**.
 
-### 👥 Personal and Business accounts
-- Sign up as an individual, or as a **business** (like a café or shop) that hosts
-  events for the community.
+### 👥 Joiner and Host accounts
+- Sign up as a **Joiner** to discover and attend events, or as a **Host** to
+  organize them. Hosts use the existing business name and contact fields and
+  start in the host dashboard; joiners start in the event feed.
 
 ### 🌙 Comfortable to use
 - Works on computers, tablets, and phones.

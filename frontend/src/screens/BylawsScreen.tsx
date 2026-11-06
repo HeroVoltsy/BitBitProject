@@ -13,7 +13,7 @@ const SECTIONS: LegalSection[] = [
         <p>
           These Community By-laws set out how members of the Sali Ka community are expected to
           behave, and how {OPERATOR} enforces these standards. They apply to everyone who uses Sali
-          Ka, including guests, attendees, Hosts, and Business accounts, both on the Service and at
+          Ka, including guests, Joiners, and Hosts, both on the Service and at
           events found through it.
         </p>
         <p>
@@ -131,7 +131,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "business",
-    title: "Article VIII. Business accounts",
+    title: "Article VIII. Host business details",
     body: (
       <ul>
         <li>Keep your business name and contact details accurate and up to date.</li>
