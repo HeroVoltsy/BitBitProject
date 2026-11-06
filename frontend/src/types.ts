@@ -18,6 +18,7 @@ export type ScreenName =
   | "qr-scanner"
   | "attendance"
   | "settings"
+  | "verification"
   | "terms"
   | "privacy"
   | "bylaws"

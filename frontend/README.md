@@ -210,3 +210,49 @@ exist only for when you wire the UI to a real backend:
 ## License
 
 Released under the [MIT License](./LICENSE).
+
+## Identity verification prototype
+
+Joiners and Hosts can open **Identity verification** from Home/the Host Dashboard
+or Settings. The three steps cover personal details (including residential address), identity
+documents, and a review screen. Contact number appears between Name and Address. Permanent and current addresses
+use full-width street fields, a barangay field, then paired city/region and
+postal-code/country fields. Country defaults to Philippines. A same-as-permanent
+option uses the latest permanent address without overwriting a separate current
+address draft. First and last names are
+required; middle name and additional address details are optional. Card IDs require
+front and back photos plus a selfie; passports require their photo page and a selfie. Hosts also enter organizer details
+and confirm authorization. The form has no built-in example data, autofill
+buttons, sample images, or simulated review controls.
+
+This is a frontend prototype: no upload, camera, network request, or identity check
+is performed. Use test data while developing. Images are previewed with local
+object URLs, revoked when the preview unmounts. Details and images are dropped on
+completion, cancel/navigation, or reload. Only a per-role progress marker is stored
+in this tab's session; logout removes it. No badge or real permissions are granted.
+The acknowledgement and completion screen explain that nothing has been submitted.
+Older saved review previews can be cleared with **Start again**.
+
+Run `npm run test:kyc` for validation and per-role status checks, and
+`npm run build` for the type-check and production build.
+
+### Manual walkthrough
+
+1. Sign up as a Joiner and choose **Get started** on Home.
+2. Try Continue with empty fields, then enter personal and address details on
+   the same step and proceed.
+3. Select the document type. Add both card sides (or
+   the passport photo page) and a selfie. Check that unsupported and
+   oversized images are rejected and valid images display correctly.
+4. Review all names, address fields, and document previews. Use Edit to check
+   that each section returns to its step. Check the acknowledgement and choose **Finish**.
+   The status reads **Ready to submit** because nothing has been sent.
+5. Reload: only the progress marker remains. Choose **Start again** to retry.
+6. Switch to Host in Settings. Its progress is separate, and organizer details
+   and authorization are required on the first step.
+7. Check narrow-screen and dark-mode layouts. Cancel and reopen the form to
+   confirm that details and images are cleared. Log out to clear progress.
+
+Production verification will need authenticated submission, private document
+storage, access-controlled review, a retention policy, and server-issued status.
+Never use the local prototype status for authorization.

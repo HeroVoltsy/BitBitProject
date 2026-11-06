@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { TopNav } from "./components/TopNav";
+import { ShieldCheck } from "lucide-react";
+import { VerificationScreen } from "./screens/VerificationScreen";
+import { DEMO_KYC_LABELS, getDemoKycStatus } from "./kyc";
 import { HomeScreen } from "./screens/HomeScreen";
 import { CalendarScreen } from "./screens/CalendarScreen";
 import { MapScreen } from "./screens/MapScreen";
@@ -81,7 +84,9 @@ export default function App() {
 }
 
 function AppShell() {
-  const { session, login, logout, setRole } = useAuth();
+  const { session, login, logout, setRole, setDemoKycStatus } = useAuth();
+  const activeRole: Role = session?.role === "host" ? "host" : "attendee";
+  const demoKycStatus = getDemoKycStatus(session?.demoKyc, activeRole);
   const notify = useToast();
   const isHost = session?.role === "host";
   const { eventStaff, invites, inviteStaff, removeStaff, respondToInvite, resetStaff } = useStaff();
@@ -198,9 +203,9 @@ function AppShell() {
     [respondToInvite, notify]
   );
 
-  // Staff pages need an account; the scanner also needs an accepted invite for that event.
+  // Staff and verification pages need an account; the scanner also needs an accepted invite.
   const view: ScreenName =
-    !session && (roleView === "staff" || roleView === "staff-scanner")
+    !session && (roleView === "staff" || roleView === "staff-scanner" || roleView === "verification")
       ? "home"
       : roleView === "staff-scanner" && !canScan(staffEvent)
         ? "staff"
@@ -230,6 +235,17 @@ function AppShell() {
         staffInvites={session ? pendingInvites : []}
       />
       <main>
+        {session && (view === "home" || view === "host-dashboard") && (
+          <aside className="kyc-banner" aria-label="Identity verification">
+            <ShieldCheck size={24} aria-hidden="true" />
+            <div><strong>Identity verification</strong><p>{demoKycStatus === "not_started" ? "Complete the identity steps for your " + (isHost ? "Host" : "Joiner") + " account." : DEMO_KYC_LABELS[demoKycStatus]}</p></div>
+            <button type="button" className="btn-secondary" onClick={() => navigate("verification")}>{demoKycStatus === "not_started" ? "Get started" : "View progress"}</button>
+          </aside>
+        )}
+        {view === "verification" && session && (
+          <VerificationScreen key={session.email + ":" + activeRole} role={activeRole} status={demoKycStatus}
+            onStatusChange={(status) => setDemoKycStatus(activeRole, status)} onBack={() => navigate("settings")} />
+        )}
         {view === "home" && (
           <HomeScreen
             onOpenEvent={openEvent}

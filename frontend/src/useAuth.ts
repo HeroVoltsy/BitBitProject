@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { DemoKycRecord, DemoKycStatus } from "./kyc";
 
 /**
  * Lightweight, front-end-only session for the demo.
@@ -25,6 +26,8 @@ export interface Session {
   role?: Role;
   businessName?: string;
   businessContact?: string;
+  /** Per-role prototype status only; never identity data or a real verified flag. */
+  demoKyc?: DemoKycRecord;
 }
 
 function loadSession(): Session | null {
@@ -81,5 +84,14 @@ export function useAuth() {
     [persist]
   );
 
-  return { session, login, logout, setRole };
+  const setDemoKycStatus = useCallback((role: Role, status: DemoKycStatus) => {
+    setSession((current) => {
+      if (!current) return current;
+      const next = { ...current, demoKyc: { ...current.demoKyc, [role]: status } };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  return { session, login, logout, setRole, setDemoKycStatus };
 }
