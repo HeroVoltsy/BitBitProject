@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ChevronRight,
   Home,
   CalendarDays,
   MapPin,
@@ -14,15 +15,11 @@ import {
   X,
 } from "lucide-react";
 import type { ScreenName } from "../types";
+import type { AppNotification } from "../data/notifications";
 import { initialsOf } from "../useAuth";
 import { ParrotLogo } from "./ParrotLogo";
 import { useAuthGate } from "./AuthGate";
 
-const NOTIFICATIONS = [
-  { title: "Naga Sunday Market starts soon", meta: "Today · 10:00 AM · Plaza Rizal" },
-  { title: "Maria Santos is now going to your event", meta: "2h ago" },
-  { title: "New event near you: Acoustic Nights", meta: "Yesterday · Magsaysay Ave" },
-];
 
 interface NavLink {
   key: ScreenName;
@@ -52,6 +49,9 @@ export function TopNav({
   isHost = false,
   hasStaffAccess = false,
   staffInvites = [],
+  onRespondInvite,
+  notifications = [],
+  onOpenEvent,
 }: {
   active: ScreenName;
   onNavigate: (s: ScreenName) => void;
@@ -59,17 +59,45 @@ export function TopNav({
   userName?: string;
   /** Host (organizer) UI: host links + Post an Event. Otherwise the attendee UI. */
   isHost?: boolean;
-  /** Shows the "Staff" link: the user has a Check-in Staff invite or assignment. */
+  /** Shows the "Staff" link: the user has accepted at least one Check-in Staff invite. */
   hasStaffAccess?: boolean;
   /** Pending Check-in Staff invitations, shown at the top of the bell menu. */
-  staffInvites?: { eventTitle: string; invitedBy: string }[];
+  staffInvites?: { eventId: string; eventTitle: string; invitedBy: string }[];
+  /** Accept or decline a staff invitation straight from the bell menu. */
+  onRespondInvite?: (eventId: string, accept: boolean) => void;
+  /** Bell items; `available` is false when the linked event no longer exists. */
+  notifications?: (AppNotification & { available: boolean })[];
+  /** Opens the event a notification is about. */
+  onOpenEvent?: (eventId: string) => void;
 }) {
   const { requireAuth, openAuth } = useAuthGate();
   const [open, setOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [seen, setSeen] = useState(false);
-  const unread = seen ? 0 : NOTIFICATIONS.length + staffInvites.length;
+  // Ids already shown to the user, so a newly joined event's reminder
+  // (or a new invite) brings the badge back.
+  const [seenIds, setSeenIds] = useState<string[]>([]);
+  const allIds = [
+    ...staffInvites.map((i) => `invite-${i.eventId}`),
+    ...notifications.map((n) => n.id),
+  ];
+  const unread = allIds.filter((id) => !seenIds.includes(id)).length;
   const notifRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  // Briefly highlights the Staff link right after an invite is accepted.
+  const [staffJustAdded, setStaffJustAdded] = useState(false);
+  useEffect(() => {
+    if (!staffJustAdded) return;
+    const t = setTimeout(() => setStaffJustAdded(false), 2400);
+    return () => clearTimeout(t);
+  }, [staffJustAdded]);
+
+  const respondInvite = (eventId: string, accept: boolean) => {
+    onRespondInvite?.(eventId, accept);
+    if (accept) setStaffJustAdded(true);
+    // The row disappears, so close the menu and put focus back on the bell.
+    setNotifOpen(false);
+    bellRef.current?.focus();
+  };
 
   const go = (s: ScreenName) => {
     setOpen(false);
@@ -96,7 +124,7 @@ export function TopNav({
     requireAuth(() => {
       setNotifOpen((v) => {
         const next = !v;
-        if (next) setSeen(true); // opening marks as read
+        if (next) setSeenIds(allIds); // opening marks everything as read
         return next;
       });
     }, "Log in to see your notifications.");
@@ -144,7 +172,9 @@ export function TopNav({
           {links.map(({ key, label, Icon }) => (
             <button
               key={key}
-              className={`navlink ${highlighted === key ? "navlink--active" : ""}`}
+              className={`navlink ${highlighted === key ? "navlink--active" : ""} ${
+                key === "staff" && staffJustAdded ? "navlink--new" : ""
+              }`}
               onClick={() => openLink(key)}
               aria-current={highlighted === key ? "page" : undefined}
             >
@@ -157,6 +187,7 @@ export function TopNav({
         <div className="topnav__actions">
           <div className="notif" ref={notifRef}>
             <button
+              ref={bellRef}
               className="iconbtn"
               aria-label="Notifications"
               aria-expanded={notifOpen}
@@ -169,24 +200,61 @@ export function TopNav({
               <div className="notif__pop card" role="dialog" aria-label="Notifications">
                 <div className="notif__head">Notifications</div>
                 {staffInvites.map((n) => (
-                  <button
-                    type="button"
-                    className="notif__item notif__item--action"
-                    key={n.eventTitle}
-                    onClick={() => go("staff")}
-                  >
+                  <div className="notif__item notif__invite" key={n.eventId}>
                     <span className="notif__title">
                       {n.invitedBy} invited you to be check-in staff for {n.eventTitle}
                     </span>
-                    <span className="notif__meta">Tap to accept or decline</span>
-                  </button>
-                ))}
-                {NOTIFICATIONS.map((n) => (
-                  <div className="notif__item" key={n.title}>
-                    <span className="notif__title">{n.title}</span>
-                    <span className="notif__meta">{n.meta}</span>
+                    <span className="notif__meta">Staff can scan guests&rsquo; QR codes at this event.</span>
+                    <div className="notif__actions">
+                      <button
+                        type="button"
+                        className="btn-primary notif__btn"
+                        aria-label={`Accept staff invite for ${n.eventTitle}`}
+                        onClick={() => respondInvite(n.eventId, true)}
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost notif__btn"
+                        aria-label={`Decline staff invite for ${n.eventTitle}`}
+                        onClick={() => respondInvite(n.eventId, false)}
+                      >
+                        Decline
+                      </button>
+                    </div>
                   </div>
                 ))}
+                {notifications.map((n) =>
+                  n.eventId && n.available ? (
+                    <button
+                      type="button"
+                      className="notif__item notif__item--link"
+                      key={n.id}
+                      onClick={() => {
+                        setNotifOpen(false);
+                        onOpenEvent?.(n.eventId!);
+                      }}
+                    >
+                      <span className="notif__text">
+                        <span className="notif__title">{n.title}</span>
+                        <span className="notif__meta">{n.meta}</span>
+                      </span>
+                      <ChevronRight size={18} strokeWidth={2.2} className="notif__chev" aria-hidden="true" />
+                      <span className="sr-only">Open event</span>
+                    </button>
+                  ) : (
+                    <div className="notif__item" key={n.id}>
+                      <span className="notif__title">{n.title}</span>
+                      <span className="notif__meta">
+                        {n.eventId ? "This event is no longer available" : n.meta}
+                      </span>
+                    </div>
+                  )
+                )}
+                {notifications.length === 0 && staffInvites.length === 0 && (
+                  <p className="notif__empty">You&rsquo;re all caught up.</p>
+                )}
               </div>
             )}
           </div>
@@ -231,7 +299,9 @@ export function TopNav({
           {links.map(({ key, label, Icon }) => (
             <button
               key={key}
-              className={`navlink ${highlighted === key ? "navlink--active" : ""}`}
+              className={`navlink ${highlighted === key ? "navlink--active" : ""} ${
+                key === "staff" && staffJustAdded ? "navlink--new" : ""
+              }`}
               onClick={() => openLink(key)}
             >
               <Icon size={18} strokeWidth={2.2} />

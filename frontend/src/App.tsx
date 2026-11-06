@@ -27,6 +27,7 @@ import { StaffScannerScreen } from "./screens/StaffScannerScreen";
 import { ManageStaffDialog } from "./components/ManageStaffDialog";
 import { useStaff } from "./useStaff";
 import { CATEGORIES, FEED_EVENTS, findEvent } from "./data/events";
+import { SAMPLE_NOTIFICATIONS, remindersFor } from "./data/notifications";
 import { useAuth, type Role } from "./useAuth";
 import { useToast } from "./components/Toast";
 import { ToastProvider } from "./components/Toast";
@@ -35,6 +36,8 @@ import type { EventItem, ProfileTab, ScreenName } from "./types";
 
 const LIKED_KEY = "salika.liked";
 const JOINED_KEY = "salika.joined";
+// Events the user left (also overrides the sample data's "attending" flags).
+const LEFT_KEY = "salika.left";
 
 /** Read a string-id list from sessionStorage, ignoring anything malformed. */
 function loadIds(key: string): string[] {
@@ -105,6 +108,7 @@ function AppShell() {
   const [likedIds, setLikedIds] = useState<string[]>(() => loadIds(LIKED_KEY));
   // Ids of events the user joined (Join button or "sasali" on a card). Kept for the tab.
   const [joinedIds, setJoinedIds] = useState<string[]>(() => loadIds(JOINED_KEY));
+  const [leftIds, setLeftIds] = useState<string[]>(() => loadIds(LEFT_KEY));
   const [dark, setDark] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem("salika.theme") === "dark";
@@ -125,6 +129,7 @@ function AppShell() {
 
   useEffect(() => saveIds(LIKED_KEY, likedIds), [likedIds]);
   useEffect(() => saveIds(JOINED_KEY, joinedIds), [joinedIds]);
+  useEffect(() => saveIds(LEFT_KEY, leftIds), [leftIds]);
 
   const toggleLiked = useCallback((id: string) => {
     setLikedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [id, ...ids]));
@@ -132,11 +137,27 @@ function AppShell() {
 
   const joinEvent = useCallback((id: string) => {
     setJoinedIds((ids) => (ids.includes(id) ? ids : [id, ...ids]));
+    setLeftIds((ids) => ids.filter((x) => x !== id));
   }, []);
+
+  // Leave ("unjoin") an event, after the two-step confirmation.
+  // TODO(backend): call the leave-event API here, e.g. POST /events/:id/leave
+  // with { reason }. The server must remove the RSVP, invalidate the QR code,
+  // and notify the host (bell + email), including the optional reason.
+  const leaveEvent = useCallback(
+    (event: EventItem, _reason?: string) => {
+      setJoinedIds((ids) => ids.filter((x) => x !== event.id));
+      setLeftIds((ids) => (ids.includes(event.id) ? ids : [event.id, ...ids]));
+      notify(`You left ${event.title}. The host has been notified.`);
+    },
+    [notify]
+  );
 
   // Signed-out visitors aren't attending anything (sample "attending" flags are the demo user's).
   const isAttending = (e: EventItem) =>
-    Boolean(session) && (Boolean(e.attending) || joinedIds.includes(e.id));
+    Boolean(session) &&
+    !leftIds.includes(e.id) &&
+    (Boolean(e.attending) || joinedIds.includes(e.id));
 
   const likedEvents = likedIds.map(findEvent).filter((e): e is EventItem => e !== undefined);
 
@@ -192,8 +213,28 @@ function AppShell() {
   // Check-in Staff (per-event, scanner-only access) — works in both UIs.
   const pendingInvites = invites
     .filter((i) => i.status === "pending")
-    .map((i) => ({ invitedBy: i.invitedBy, eventTitle: findEvent(i.eventId)?.title ?? "an event" }));
-  const hasStaffAccess = invites.length > 0;
+    .map((i) => ({
+      eventId: i.eventId,
+      invitedBy: i.invitedBy,
+      eventTitle: findEvent(i.eventId)?.title ?? "an event",
+    }));
+  // Bell notifications: a reminder for every event the user is going to, then
+  // other activity. Events that no longer exist are flagged, not opened.
+  const notifications = session
+    ? [
+        ...remindersFor(FEED_EVENTS.filter((e) => !e.hosting && isAttending(e))),
+        ...SAMPLE_NOTIFICATIONS,
+      ].map((n) => ({ ...n, available: !n.eventId || findEvent(n.eventId) !== undefined }))
+    : [];
+  const openNotificationEvent = (eventId: string) => {
+    const event = findEvent(eventId);
+    if (event) openEvent(event, isHost ? "host-dashboard" : "home");
+  };
+
+  // The Staff page only exists for someone who has accepted at least one
+  // invite. Pending invites are accepted/declined from the bell menu.
+  const hasStaffAccess =
+    Boolean(session) && invites.some((i) => i.status === "accepted");
   const canScan = (e: EventItem | null): e is EventItem =>
     e !== null && invites.some((i) => i.eventId === e.id && i.status === "accepted");
 
@@ -205,10 +246,15 @@ function AppShell() {
     [respondToInvite, notify]
   );
 
-  // Staff and verification pages need an account; the scanner also needs an accepted invite.
+  // Staff and verification pages need an account; Staff pages also need an
+  // accepted invite, and the scanner needs one for that specific event.
   const view: ScreenName =
     !session && (roleView === "staff" || roleView === "staff-scanner" || roleView === "verification" || roleView === "discovery")
       ? "home"
+      : (roleView === "staff" || roleView === "staff-scanner") && !hasStaffAccess
+        ? isHost
+          ? "host-dashboard"
+          : "home"
       : roleView === "staff-scanner" && !canScan(staffEvent)
         ? "staff"
         : roleView;
@@ -220,6 +266,7 @@ function AppShell() {
     // Likes belong to the signed-in user; don't hand them to the next person on this tab.
     setLikedIds([]);
     setJoinedIds([]);
+    setLeftIds([]);
     setScreen("home");
   }, [logout, resetStaff]);
 
@@ -235,6 +282,9 @@ function AppShell() {
         isHost={isHost}
         hasStaffAccess={hasStaffAccess}
         staffInvites={session ? pendingInvites : []}
+        onRespondInvite={respond}
+        notifications={notifications}
+        onOpenEvent={openNotificationEvent}
       />
       <main>
         {session && (view === "home" || view === "host-dashboard") && (
@@ -318,6 +368,7 @@ function AppShell() {
             onToggleLiked={() => toggleLiked(activeEvent.id)}
             attending={isAttending(activeEvent)}
             onJoin={() => joinEvent(activeEvent.id)}
+            onLeave={(reason) => leaveEvent(activeEvent, reason)}
             onBack={() => navigate(eventOrigin)}
             backLabel={BACK_LABELS[eventOrigin]}
             onOpenHost={() => navigate("host-profile")}

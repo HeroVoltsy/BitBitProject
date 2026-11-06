@@ -4,6 +4,7 @@ import { ArrowLeft, Heart, CalendarDays, MapPin, Navigation, QrCode, X, ScanLine
 import { StripePlaceholder } from "../components/StripePlaceholder";
 import { CategoryBadge } from "../components/CategoryBadge";
 import { AvatarGroup } from "../components/Avatar";
+import { LeaveEventDialog } from "../components/LeaveEventDialog";
 import { useToast } from "../components/Toast";
 import { useAuthGate } from "../components/AuthGate";
 import { USER } from "../data/events";
@@ -23,6 +24,7 @@ export function EventDetailScreen({
   onOpenHost,
   onNavigate,
   onManageStaff,
+  onLeave,
 }: {
   event: EventItem;
   liked: boolean;
@@ -36,8 +38,11 @@ export function EventDetailScreen({
   onNavigate: (s: ScreenName) => void;
   /** Host only: invite/remove Check-in Staff for this event. */
   onManageStaff?: () => void;
+  /** Attendee only: leave the event (after a two-step confirmation). */
+  onLeave?: (reason?: string) => void;
 }) {
   const [qrOpen, setQrOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const notify = useToast();
   const { requireAuth } = useAuthGate();
   const [dateText, timeText] = event.dateLine.split(" · ");
@@ -131,6 +136,15 @@ export function EventDetailScreen({
           <p className="detail-about">{ABOUT}</p>
         </section>
 
+        {attending && !event.hosting && onLeave && (
+          <p className="leave-row">
+            <span className="muted">Can&rsquo;t make it?</span>
+            <button type="button" className="leave-link" onClick={() => setLeaveOpen(true)}>
+              Leave event
+            </button>
+          </p>
+        )}
+
         {event.hosting ? (
           <div className="detail-organizer">
             <div className="detail-hosting">You're hosting this event</div>
@@ -178,6 +192,17 @@ export function EventDetailScreen({
           )
         )}
       </div>
+
+      {leaveOpen && onLeave && (
+        <LeaveEventDialog
+          event={event}
+          onClose={() => setLeaveOpen(false)}
+          onConfirm={(reason) => {
+            setLeaveOpen(false);
+            onLeave(reason);
+          }}
+        />
+      )}
 
       {qrOpen && (
         <div className="qr-modal" role="dialog" aria-modal="true" onClick={() => setQrOpen(false)}>
