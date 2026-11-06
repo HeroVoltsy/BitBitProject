@@ -33,7 +33,7 @@ export type ScreenName =
   | "staff-scanner";
 
 /** Tabs on the Profile screen. */
-export type ProfileTab = "organizer" | "attendee" | "liked";
+export type ProfileTab = "organizer" | "attendee" | "past";
 
 export interface EventItem {
   id: string;
@@ -46,6 +46,10 @@ export interface EventItem {
   going: number;
   hosting?: boolean;
   attending?: boolean;
+  /** The event already happened (past events can be rated, not joined). */
+  ended?: boolean;
+  /** Organizer's display name, when it isn't the current user. */
+  hostName?: string;
   /** Optional organizer-supplied audience tags for discovery, never attendance restrictions. */
   audiences?: Occupation[];
 }

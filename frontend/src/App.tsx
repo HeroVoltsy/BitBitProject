@@ -26,6 +26,7 @@ import { StaffScreen } from "./screens/StaffScreen";
 import { StaffScannerScreen } from "./screens/StaffScannerScreen";
 import { ManageStaffDialog } from "./components/ManageStaffDialog";
 import { useStaff } from "./useStaff";
+import { useRatings } from "./useRatings";
 import { CATEGORIES, FEED_EVENTS, findEvent } from "./data/events";
 import { SAMPLE_NOTIFICATIONS, remindersFor } from "./data/notifications";
 import { useAuth, type Role } from "./useAuth";
@@ -95,6 +96,7 @@ function AppShell() {
   const notify = useToast();
   const isHost = session?.role === "host";
   const { eventStaff, invites, inviteStaff, removeStaff, respondToInvite, resetStaff } = useStaff();
+  const { ratings, rateEvent, resetRatings } = useRatings();
   // Host's "Manage Staff" pop-up (which event it's for), and the event staff are scanning.
   const [staffDialogEvent, setStaffDialogEvent] = useState<EventItem | null>(null);
   const [staffEvent, setStaffEvent] = useState<EventItem | null>(null);
@@ -212,7 +214,7 @@ function AppShell() {
 
   // Check-in Staff (per-event, scanner-only access) — works in both UIs.
   const pendingInvites = invites
-    .filter((i) => i.status === "pending")
+    .filter((i) => i.status === "pending" && !findEvent(i.eventId)?.ended)
     .map((i) => ({
       eventId: i.eventId,
       invitedBy: i.invitedBy,
@@ -231,15 +233,26 @@ function AppShell() {
     if (event) openEvent(event, isHost ? "host-dashboard" : "home");
   };
 
-  // The Staff page only exists for someone who has accepted at least one
-  // invite. Pending invites are accepted/declined from the bell menu.
+  // Staff access ends with the event. `ended` comes from the sample data; the
+  // backend owns the real end time + grace period and must reject late scans.
+  const eventEnded = (eventId: string) => findEvent(eventId)?.ended === true;
+  // The Staff page only exists while the user has an accepted invite for an
+  // event that hasn't ended. Pending invites are answered from the bell menu.
   const hasStaffAccess =
-    Boolean(session) && invites.some((i) => i.status === "accepted");
+    Boolean(session) &&
+    invites.some((i) => i.status === "accepted" && !eventEnded(i.eventId));
   const canScan = (e: EventItem | null): e is EventItem =>
-    e !== null && invites.some((i) => i.eventId === e.id && i.status === "accepted");
+    e !== null &&
+    !e.ended &&
+    invites.some((i) => i.eventId === e.id && i.status === "accepted");
 
   const respond = useCallback(
     (eventId: string, accept: boolean) => {
+      // An invite to an event that already ended can't be accepted.
+      if (accept && findEvent(eventId)?.ended) {
+        notify("This invitation expired because the event has ended.");
+        return;
+      }
       respondToInvite(eventId, accept);
       notify(accept ? "You're now check-in staff for this event." : "Invitation declined.");
     },
@@ -267,8 +280,9 @@ function AppShell() {
     setLikedIds([]);
     setJoinedIds([]);
     setLeftIds([]);
+    resetRatings();
     setScreen("home");
-  }, [logout, resetStaff]);
+  }, [logout, resetStaff, resetRatings]);
 
   // No auth gate: anyone can browse. Features that need an account open the
   // sign-in pop-up via useAuthGate().requireAuth (see components/AuthGate.tsx).
@@ -356,9 +370,23 @@ function AppShell() {
             onOpenEvent={(e) => openEvent(e, "profile")}
             tab={profileTab}
             onTabChange={setProfileTab}
-            likedEvents={likedEvents}
-            onToggleLiked={toggleLiked}
             isHost={isHost}
+            userName={session?.name ?? ""}
+            userEmail={session?.email ?? ""}
+            goingEvents={FEED_EVENTS.filter((e) => !e.hosting && isAttending(e))}
+            ratings={ratings}
+            onRate={(event, r) => {
+              // TODO(backend): POST /events/:id/ratings { stars, comment, anonymous }.
+              // The server notifies the host (bell + email) and must hide the
+              // rater's name when anonymous is true.
+              const edited = Boolean(ratings[event.id]);
+              rateEvent(event.id, r);
+              notify(
+                `${edited ? "Rating updated" : "Thanks for rating"}! ${event.hostName} has been notified${
+                  r.anonymous ? " (your name is hidden)" : ""
+                }.`
+              );
+            }}
           />
         )}
         {view === "event-detail" && (

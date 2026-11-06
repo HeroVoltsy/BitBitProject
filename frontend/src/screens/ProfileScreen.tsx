@@ -1,55 +1,98 @@
-import { Settings, QrCode, Star, Heart } from "lucide-react";
-import { EventCard } from "../components/EventCard";
+import { useState } from "react";
+import { ChevronRight, Settings, Star } from "lucide-react";
 import { RatingRow } from "../components/RatingRow";
-import { ScheduleItem } from "../components/ScheduleItem";
-import { FEED_EVENTS, GOING_LIST, HOST_STATS, ORGANIZED_EVENTS, USER } from "../data/events";
+import { RateEventDialog } from "../components/RateEventDialog";
+import {
+  HOST_STATS,
+  ORGANIZED_EVENTS,
+  PAST_JOINED_EVENTS,
+  type PastEvent,
+} from "../data/events";
 import type { EventItem, ProfileTab, ScreenName } from "../types";
+import type { EventRating } from "../useRatings";
+import { initialsOf } from "../useAuth";
+
+/** "Plaza Rizal, Naga City" -> "Plaza Rizal" */
+const shortPlace = (loc: string) => loc.split(",")[0];
+
+/** Small month/day block, matching the date chip on event cards. */
+function DateBlock({ event }: { event: EventItem }) {
+  return (
+    <span className="pf-date" aria-hidden="true">
+      <span className="pf-date__m">{event.monthLabel}</span>
+      <span className="pf-date__d">{event.day}</span>
+    </span>
+  );
+}
 
 export function ProfileScreen({
   onNavigate,
   onOpenEvent,
   tab: tabProp,
   onTabChange: setTab,
-  likedEvents,
-  onToggleLiked,
   isHost = false,
+  ratings,
+  onRate,
+  userName,
+  userEmail,
+  goingEvents,
 }: {
   onNavigate: (s: ScreenName) => void;
   onOpenEvent: (e: EventItem) => void;
   tab: ProfileTab;
   onTabChange: (t: ProfileTab) => void;
-  likedEvents: EventItem[];
-  onToggleLiked: (id: string) => void;
-  /** Hosts see organizer stats + the Organizer tab; attendees see Going + Liked only. */
+  /** Hosts also see organizer stats + the Organizer tab. Liked events live in the nav bar. */
   isHost?: boolean;
+  /** Ratings this user gave to past events, keyed by event id. */
+  ratings: Record<string, EventRating>;
+  onRate: (event: PastEvent, rating: Omit<EventRating, "ratedAt">) => void;
+  /** The logged-in user. */
+  userName: string;
+  userEmail: string;
+  /** Upcoming events this user joined (updates on join / leave). */
+  goingEvents: EventItem[];
 }) {
   const tab = !isHost && tabProp === "organizer" ? "attendee" : tabProp;
+  const [rating, setRating] = useState<PastEvent | null>(null);
 
-  const attendingEvent = FEED_EVENTS.find((e) => e.attending) ?? FEED_EVENTS[0];
-  // Match a going-list entry to the real event so its detail opens correctly.
-  const openGoing = (title: string) =>
-    onOpenEvent(FEED_EVENTS.find((e) => e.title === title && e.attending) ?? attendingEvent);
+  const ratedCount = PAST_JOINED_EVENTS.filter((e) => ratings[e.id]).length;
 
   return (
-    <div className="page">
-      <div className="profile-top">
-        <h1 className="page-title">Profile</h1>
-        <button className="btn-ghost" onClick={() => onNavigate("settings")}>
-          <Settings size={18} strokeWidth={2} /> Settings
-        </button>
-      </div>
+    <div className="page page--narrow">
+      <h1 className="page-title pf-title">Profile</h1>
 
-      <div className="profile-grid">
-        <section className="identity-card card">
-          <span className="identity-card__avatar">{USER.initials}</span>
-          <h2 className="identity-card__name">{USER.name}</h2>
-          <p className="muted">{USER.memberSince}</p>
+      <section className="pf-head card" aria-label="Your account">
+        <div className="pf-head__top">
+          <span className="pf-head__avatar" aria-hidden="true">
+            {initialsOf(userName)}
+          </span>
+          <div className="pf-head__id">
+            <h2 className="pf-head__name">{userName}</h2>
+            <p className="pf-head__meta">
+              <span className="pf-head__email">{userEmail}</span>
+              <span className="pf-head__dot" aria-hidden="true">
+                {" · "}
+              </span>
+              <span className="pf-head__role">{isHost ? "Host account" : "Joiner account"}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-ghost pf-head__settings"
+            onClick={() => onNavigate("settings")}
+            aria-label="Settings"
+          >
+            <Settings size={18} strokeWidth={2} aria-hidden="true" />
+            <span className="pf-head__settings-label">Settings</span>
+          </button>
+        </div>
 
-          {/* Followers + reputation (host UI only) */}
-          {isHost && (
-          <div className="host-stats host-stats--last">
+        {/* Host reputation (joiners see their counts on the tabs below) */}
+        {isHost && (
+          <div className="pf-stats">
             <button
-              className="host-stat host-stat--link"
+              type="button"
+              className="pf-stat"
               onClick={() => onNavigate("organized-events")}
               aria-label={`${HOST_STATS.hosted} events organized. View all`}
             >
@@ -57,36 +100,26 @@ export function ProfileScreen({
               <span>Events</span>
             </button>
             <button
-              className="host-stat host-stat--link"
+              type="button"
+              className="pf-stat"
               onClick={() => onNavigate("followers")}
               aria-label={`${HOST_STATS.followers} followers. View all`}
             >
               <strong>{HOST_STATS.followers}</strong>
               <span>Followers</span>
             </button>
-            <div className="host-stat">
-              <strong className="host-stat__rating">
-                <Star size={15} strokeWidth={2} fill="currentColor" /> {HOST_STATS.rating.toFixed(1)}
+            <div className="pf-stat pf-stat--static">
+              <strong className="pf-stat__rating">
+                <Star size={15} strokeWidth={2} fill="currentColor" aria-hidden="true" />
+                {HOST_STATS.rating.toFixed(1)}
               </strong>
               <span>Rating</span>
             </div>
           </div>
-          )}
-        </section>
+        )}
+      </section>
 
-        <section className="qr-card card">
-          <div className="qr-card__text">
-            <h3>Membership QR</h3>
-            <p className="muted">Scan this to check in at hosted events</p>
-            <span className="qr-card__id">ID #{USER.membershipId}</span>
-          </div>
-          <div className="qr-graphic" aria-hidden="true">
-            <QrCode size={104} strokeWidth={1.4} />
-          </div>
-        </section>
-      </div>
-
-      <div className="segmented">
+      <div className="segmented pf-tabs">
         {isHost && (
           <button
             className={`segmented__tab ${tab === "organizer" ? "segmented__tab--active" : ""}`}
@@ -100,12 +133,14 @@ export function ProfileScreen({
           onClick={() => setTab("attendee")}
         >
           {isHost ? "Attendee" : "Going"}
+          <span className="segmented__count">{goingEvents.length}</span>
         </button>
         <button
-          className={`segmented__tab ${tab === "liked" ? "segmented__tab--active" : ""}`}
-          onClick={() => setTab("liked")}
+          className={`segmented__tab ${tab === "past" ? "segmented__tab--active" : ""}`}
+          onClick={() => setTab("past")}
         >
-          Liked{likedEvents.length > 0 && <span className="segmented__count">{likedEvents.length}</span>}
+          Past
+          <span className="segmented__count">{PAST_JOINED_EVENTS.length}</span>
         </button>
       </div>
 
@@ -125,46 +160,108 @@ export function ProfileScreen({
             ))}
           </div>
         </section>
-      ) : tab === "liked" ? (
+      ) : tab === "past" ? (
         <section className="block">
-          <h2 className="section-title block__title">Events you liked</h2>
-          {likedEvents.length > 0 ? (
-            <div className="feed-grid">
-              {likedEvents.map((e) => (
-                <EventCard
-                  key={e.id}
-                  event={e}
-                  onOpen={() => onOpenEvent(e)}
-                  liked
-                  onToggleLiked={() => onToggleLiked(e.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="liked-empty card">
-              <Heart size={28} strokeWidth={2} />
-              <strong>No liked events yet</strong>
-              <span className="muted">
-                Tap the heart on any event to save it here, so you can find it again later.
-              </span>
-            </div>
+          <h2 className="section-title">Past events you joined</h2>
+          <p className="muted past-sub">
+            {ratedCount} of {PAST_JOINED_EVENTS.length} rated. The host is notified when you rate,
+            and you can rate anonymously.
+          </p>
+          <div className="stack">
+            {PAST_JOINED_EVENTS.map((e) => {
+              const mine = ratings[e.id];
+              return (
+                <article className="past-row card" key={e.id}>
+                  <button type="button" className="past-row__main" onClick={() => onOpenEvent(e)}>
+                    <DateBlock event={e} />
+                    <span className="pf-row__info">
+                    <strong className="past-row__title">{e.title}</strong>
+                    <span className="past-row__meta">
+                      {e.dateLabel} · Hosted by {e.hostName}
+                    </span>
+                    {mine && (
+                      <span className="past-row__mine">
+                        <span className="mini-stars" aria-hidden="true">
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <Star
+                              key={n}
+                              size={15}
+                              strokeWidth={2}
+                              fill={mine.stars >= n ? "currentColor" : "none"}
+                            />
+                          ))}
+                        </span>
+                        <span className="sr-only">You rated it {mine.stars} out of 5</span>
+                        {mine.anonymous && <span className="past-row__tag">Anonymous</span>}
+                      </span>
+                    )}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={mine ? "btn-ghost past-row__rate" : "btn-primary past-row__rate"}
+                    aria-label={mine ? `Edit your rating for ${e.title}` : `Rate ${e.title}`}
+                    onClick={() => setRating(e)}
+                  >
+                    {mine ? (
+                      "Edit"
+                    ) : (
+                      <>
+                        <Star size={16} strokeWidth={2.2} aria-hidden="true" /> Rate
+                      </>
+                    )}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          {PAST_JOINED_EVENTS.length === 0 && (
+            <p className="empty">Events you attend will show here so you can rate them.</p>
           )}
         </section>
       ) : (
         <section className="block">
           <h2 className="section-title block__title">Events you're going to</h2>
-          <div className="stack">
-            {GOING_LIST.map((it) => (
-              <ScheduleItem
-                key={it.title}
-                title={it.title}
-                time={it.meta}
-                location={it.location}
-                onClick={() => openGoing(it.title)}
-              />
-            ))}
-          </div>
+          {goingEvents.length > 0 ? (
+            <div className="stack">
+              {goingEvents.map((e) => (
+                <button type="button" className="pf-row card" key={e.id} onClick={() => onOpenEvent(e)}>
+                  <DateBlock event={e} />
+                  <span className="pf-row__info">
+                    <strong className="pf-row__title">{e.title}</strong>
+                    <span className="pf-row__meta">
+                      {e.dateLine.split(" · ")[1] ?? e.dateLine} · {shortPlace(e.location)}
+                    </span>
+                  </span>
+                  <ChevronRight size={18} strokeWidth={2.2} className="pf-row__chev" aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="pf-empty card">
+              <strong>You&rsquo;re not going to any events yet</strong>
+              <span className="muted">Events you join will show here.</span>
+              {!isHost && (
+                <button type="button" className="btn-primary pf-empty__cta" onClick={() => onNavigate("home")}>
+                  Find Events
+                </button>
+              )}
+            </div>
+          )}
         </section>
+      )}
+
+      {rating && (
+        <RateEventDialog
+          event={rating}
+          hostName={rating.hostName}
+          initial={ratings[rating.id]}
+          onClose={() => setRating(null)}
+          onSubmit={(r) => {
+            onRate(rating, r);
+            setRating(null);
+          }}
+        />
       )}
     </div>
   );
