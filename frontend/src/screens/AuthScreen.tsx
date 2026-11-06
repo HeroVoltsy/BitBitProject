@@ -30,7 +30,7 @@ export function AuthForm({
   reason?: string;
   /** id for the heading, so the dialog can be labelled by it. */
   titleId: string;
-  onAuthenticated: (s: Session) => void;
+  onAuthenticated: (s: Session, mode: AuthMode) => void;
 }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [name, setName] = useState("");
@@ -86,7 +86,7 @@ export function AuthForm({
       role: isHost ? "host" : "attendee",
       businessName: isHost ? businessName.trim() : undefined,
       businessContact: isHost ? businessContact.trim() : undefined,
-    });
+    }, mode);
   };
 
   const sub = reason ?? (mode === "signup" ? "Join your community in a few seconds." : undefined);

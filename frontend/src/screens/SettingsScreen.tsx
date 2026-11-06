@@ -74,6 +74,7 @@ export function SettingsScreen({
       </SettingsGroup>
 
       <SettingsGroup title="Account">
+        {!isHost && <Row label="Interests & recommendations" chevron onClick={() => onNavigate("discovery")} />}
         <Row
           label="Identity verification"
           hint={DEMO_KYC_LABELS[getDemoKycStatus(session.demoKyc, isHost ? "host" : "attendee")]}

@@ -256,3 +256,33 @@ Run `npm run test:kyc` for validation and per-role status checks, and
 Production verification will need authenticated submission, private document
 storage, access-controlled review, a retention policy, and server-issued status.
 Never use the local prototype status for authorization.
+
+## Joiner signup questions
+
+After creating a Joiner account, the user sees two questions in a separate dialog:
+**Which best describes you?** (Student, Teacher, Working professional, Business
+owner, Self-employed, Other, or Prefer not to say), then **What are you interested
+in?** (one or more existing event categories). Back preserves the previous answer;
+Skip for now or Escape continues without saving any partial answers. Hosts and
+returning logins do not get the questionnaire. The signup session is created before
+the questions, and any pending join/like action resumes once after completion/skip.
+
+Answers live in the current tab's session marker, survive reload/role switching,
+and clear on logout. Joiners can edit them under **Settings > Account > Interests
+& recommendations**. Cancel there discards draft changes.
+
+Home keeps its existing single feed and filters. Completed answers change its
+heading to **Recommended for you** and sort matching interests first (+10), with
+organizer-provided audience tags as a smaller secondary signal (+2). Ties preserve
+catalog order. The sample catalog includes sample audience tags; they are discovery
+hints, not attendance restrictions. Prefer not to say disables the occupational
+signal. No activity tracking, location preference, separate recommendation panel,
+GPS, or KYC information is used. The existing event catalog is still sample data.
+
+Run `npm run test:discovery` for onboarding eligibility, answer normalization,
+and ranking tests; `npm test` also runs the existing KYC tests.
+
+Manual check: create a Joiner account, choose Student/Teacher and interests, use
+Back, finish, and check feed ordering. Try Skip and Escape, a Host signup, and a
+normal login. Start signup via a saved/joined event action and confirm it runs only
+once after the questions. Edit/cancel answers in Settings, reload, and log out.

@@ -13,6 +13,8 @@ import { AuthForm, type AuthMode } from "../screens/AuthScreen";
 import type { Session } from "../useAuth";
 import { useToast } from "./Toast";
 import { BrandPanel } from "./BrandPanel";
+import { JoinerOnboardingDialog } from "./JoinerOnboarding";
+import { shouldOnboardJoiner, type DiscoveryProfile } from "../discovery";
 
 /**
  * Sign-in gate. Visitors can browse without an account; features that need one
@@ -56,6 +58,8 @@ export function AuthGateProvider({
   children: ReactNode;
 }) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [onboarding, setOnboarding] = useState<{ session: Session; action?: () => void } | null>(null);
+  const onboardingFinished = useRef(false);
   const notify = useToast();
 
   const requireAuth = useCallback(
@@ -69,12 +73,27 @@ export function AuthGateProvider({
   const openAuth = useCallback((mode: AuthMode, reason?: string) => setPrompt({ mode, reason }), []);
   const close = useCallback(() => setPrompt(null), []);
 
-  const handleAuthenticated = (s: Session) => {
+  const handleAuthenticated = (s: Session, mode: AuthMode) => {
     const pending = prompt?.action;
     onLogin(s);
     setPrompt(null);
+    if (shouldOnboardJoiner(mode, s.role)) {
+      onboardingFinished.current = false;
+      setOnboarding({ session: s, action: pending });
+      return;
+    }
     notify(`Welcome, ${s.name.split(" ")[0]}!`);
     // Finish what they were trying to do (its own toast, if any, replaces the welcome).
+    pending?.();
+  };
+
+  const finishOnboarding = (profile?: DiscoveryProfile) => {
+    if (!onboarding || onboardingFinished.current) return;
+    onboardingFinished.current = true;
+    if (profile) onLogin({ ...onboarding.session, discoveryProfile: profile });
+    const pending = onboarding.action;
+    setOnboarding(null);
+    notify(`Welcome, ${onboarding.session.name.split(" ")[0]}!`);
     pending?.();
   };
 
@@ -83,6 +102,7 @@ export function AuthGateProvider({
   return (
     <AuthGateContext.Provider value={value}>
       {children}
+      {onboarding && <JoinerOnboardingDialog onComplete={finishOnboarding} onSkip={() => finishOnboarding()} />}
       {prompt && (
         <AuthModal prompt={prompt} onClose={close} onAuthenticated={handleAuthenticated} />
       )}
@@ -98,7 +118,7 @@ function AuthModal({
 }: {
   prompt: Prompt;
   onClose: () => void;
-  onAuthenticated: (s: Session) => void;
+  onAuthenticated: (s: Session, mode: AuthMode) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   // Only a press that starts AND ends on the backdrop closes it (not a text-select drag).

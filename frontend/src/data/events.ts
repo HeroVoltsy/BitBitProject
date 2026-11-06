@@ -28,6 +28,7 @@ export const FEED_EVENTS: EventItem[] = [
   },
   {
     id: "acoustic-avenue",
+    audiences: ["student","professional"],
     title: "Acoustic Nights at the Avenue",
     category: "Music",
     monthLabel: "AUG",
@@ -39,6 +40,7 @@ export const FEED_EVENTS: EventItem[] = [
   },
   {
     id: "naga-river-cleanup",
+    audiences: ["student","teacher"],
     title: "Naga River Clean-up Drive",
     category: "Volunteer",
     monthLabel: "AUG",
@@ -50,6 +52,7 @@ export const FEED_EVENTS: EventItem[] = [
   },
   {
     id: "frisbee-friendly",
+    audiences: ["student","professional"],
     title: "Weekend Frisbee Friendly",
     category: "Sports",
     monthLabel: "SEP",
@@ -60,6 +63,7 @@ export const FEED_EVENTS: EventItem[] = [
   },
   {
     id: "naga-fun-run",
+    audiences: ["teacher","professional","self_employed"],
     title: "Naga City Fun Run 2026",
     category: "Fun Run",
     monthLabel: "SEP",
@@ -70,6 +74,7 @@ export const FEED_EVENTS: EventItem[] = [
   },
   {
     id: "penafrancia-concert",
+    audiences: ["student","professional"],
     title: "Peñafrancia Grand Concert",
     category: "Concert",
     monthLabel: "SEP",
@@ -80,6 +85,7 @@ export const FEED_EVENTS: EventItem[] = [
   },
   {
     id: "centro-popup",
+    audiences: ["business_owner","self_employed"],
     title: "Centro Pop-Up Bazaar",
     category: "Pop-Up",
     monthLabel: "SEP",

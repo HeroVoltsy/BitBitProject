@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import type { DemoKycRecord, DemoKycStatus } from "./kyc";
+import { normalizeDiscoveryProfile, type DiscoveryProfile } from "./discovery";
+import { CATEGORIES } from "./data/events";
 
 /**
  * Lightweight, front-end-only session for the demo.
@@ -28,6 +30,7 @@ export interface Session {
   businessContact?: string;
   /** Per-role prototype status only; never identity data or a real verified flag. */
   demoKyc?: DemoKycRecord;
+  discoveryProfile?: DiscoveryProfile;
 }
 
 function loadSession(): Session | null {
@@ -93,5 +96,16 @@ export function useAuth() {
     });
   }, [persist]);
 
-  return { session, login, logout, setRole, setDemoKycStatus };
+  const setDiscoveryProfile = useCallback((profile: DiscoveryProfile) => {
+    const normalized = normalizeDiscoveryProfile(profile, CATEGORIES);
+    if (!normalized) return;
+    setSession((current) => {
+      if (!current) return current;
+      const next = { ...current, discoveryProfile: normalized };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  return { session, login, logout, setRole, setDemoKycStatus, setDiscoveryProfile };
 }
