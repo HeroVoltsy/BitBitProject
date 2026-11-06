@@ -35,8 +35,8 @@ const SECTIONS: LegalSection[] = [
             encrypted, hashed form), and account type.
           </li>
           <li>
-            <strong>Business account details:</strong> business name and business contact
-            information, if you open a Business account.
+            <strong>Host account details:</strong> business name and business contact
+            information, if you open a Host account.
           </li>
           <li>
             <strong>Event activity:</strong> events you host, RSVP to, or check in at, plus the

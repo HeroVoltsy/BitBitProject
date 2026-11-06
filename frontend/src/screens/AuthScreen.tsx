@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
-import type { Session } from "../useAuth";
+import type { Role, Session } from "../useAuth";
 
 /**
  * Log In / Sign Up form. Shown inside the sign-in pop-up (components/AuthGate.tsx)
@@ -8,7 +8,6 @@ import type { Session } from "../useAuth";
  */
 
 export type AuthMode = "login" | "signup";
-type AccountType = "personal" | "business";
 
 interface Errors {
   name?: string;
@@ -38,7 +37,7 @@ export function AuthForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [accountType, setAccountType] = useState<AccountType>("personal");
+  const [role, setRole] = useState<Role>("attendee");
   const [businessName, setBusinessName] = useState("");
   const [businessContact, setBusinessContact] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -53,7 +52,7 @@ export function AuthForm({
   const validate = (): Errors => {
     const e: Errors = {};
     if (mode === "signup" && name.trim().length < 2) e.name = "Enter your full name.";
-    if (mode === "signup" && accountType === "business" && businessName.trim().length < 2) {
+    if (mode === "signup" && role === "host" && businessName.trim().length < 2) {
       e.businessName = "Enter your business name.";
     }
     if (!EMAIL_RE.test(email.trim())) e.email = "Enter a valid email address.";
@@ -80,13 +79,13 @@ export function AuthForm({
         ? name.trim()
         : email.trim().split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-    const isBusiness = mode === "signup" && accountType === "business";
+    const isHost = mode === "signup" && role === "host";
     onAuthenticated({
       name: displayName,
       email: email.trim(),
-      accountType: isBusiness ? "business" : "personal",
-      businessName: isBusiness ? businessName.trim() : undefined,
-      businessContact: isBusiness ? businessContact.trim() : undefined,
+      role: isHost ? "host" : "attendee",
+      businessName: isHost ? businessName.trim() : undefined,
+      businessContact: isHost ? businessContact.trim() : undefined,
     });
   };
 
@@ -106,23 +105,23 @@ export function AuthForm({
           <div className="account-toggle" role="group" aria-label="Account type">
             <button
               className={`account-toggle__btn ${
-                accountType === "personal" ? "account-toggle__btn--active" : ""
+                role === "attendee" ? "account-toggle__btn--active" : ""
               }`}
-              onClick={() => setAccountType("personal")}
-              aria-pressed={accountType === "personal"}
+              onClick={() => setRole("attendee")}
+              aria-pressed={role === "attendee"}
               type="button"
             >
-              Personal
+              Joiner
             </button>
             <button
               className={`account-toggle__btn ${
-                accountType === "business" ? "account-toggle__btn--active" : ""
+                role === "host" ? "account-toggle__btn--active" : ""
               }`}
-              onClick={() => setAccountType("business")}
-              aria-pressed={accountType === "business"}
+              onClick={() => setRole("host")}
+              aria-pressed={role === "host"}
               type="button"
             >
-              Business
+              Host
             </button>
           </div>
         )}
@@ -167,7 +166,7 @@ export function AuthForm({
           </label>
         )}
 
-        {mode === "signup" && accountType === "business" && (
+        {mode === "signup" && role === "host" && (
           <div className="business-fields">
             <label className="field">
               <span className="field__label">Business name</span>

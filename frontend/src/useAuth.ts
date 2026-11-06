@@ -23,7 +23,6 @@ export interface Session {
   email: string;
   /** Defaults to "attendee" when missing (e.g. sessions saved before roles existed). */
   role?: Role;
-  accountType?: "personal" | "business";
   businessName?: string;
   businessContact?: string;
 }
