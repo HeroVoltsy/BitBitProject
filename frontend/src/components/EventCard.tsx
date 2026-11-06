@@ -1,4 +1,4 @@
-import { Check, Clock, Heart, MapPin } from "lucide-react";
+import { Check, Clock, Heart, MapPin, Ticket } from "lucide-react";
 import type { EventItem } from "../types";
 import { CategoryBadge } from "./CategoryBadge";
 import { StripePlaceholder } from "./StripePlaceholder";
@@ -27,7 +27,7 @@ export function EventCard({
   joined?: boolean;
   onSasali?: () => void;
 }) {
-  if (!onToggleLiked && !onSasali) return <CardButton event={event} onOpen={onOpen} />;
+  if (!onToggleLiked && !onSasali) return <CardButton event={event} onOpen={onOpen} joined={joined} />;
   return (
     <div className="eventcard-wrap">
       <CardButton event={event} onOpen={onOpen} sasaliSlot={Boolean(onSasali)} joined={joined} />
@@ -59,10 +59,12 @@ export function EventCard({
 function SasaliLabel({ joined }: { joined: boolean }) {
   return joined ? (
     <>
-      <Check size={14} strokeWidth={3} aria-hidden="true" /> going
+      <Check size={14} strokeWidth={3} aria-hidden="true" /> GOING
     </>
   ) : (
-    <>sasali</>
+    <>
+      <Ticket size={14} strokeWidth={2.4} aria-hidden="true" /> SASALI
+    </>
   );
 }
 
@@ -114,7 +116,7 @@ function CardButton({
               <SasaliLabel joined={joined} />
             </span>
           ) : (
-            <span className="sasali-pill">sasali</span>
+            <span className="sasali-pill"><SasaliLabel joined={joined} /></span>
           )}
         </div>
       </div>
