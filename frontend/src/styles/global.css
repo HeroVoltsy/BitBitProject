@@ -66,7 +66,10 @@ h1, h2, h3, h4, h5, h6,
   max-width: var(--content-w);
   margin: 0 auto;
   padding: 40px 24px 96px;
-  animation: page-in 0.28s ease both;
+  /* "backwards" (not "both") so no transform lingers after the fade-in:
+     a lingering transform would trap position:fixed children (e.g. the
+     filter bottom sheet on phones) inside the page. */
+  animation: page-in 0.28s ease backwards;
 }
 .page--narrow {
   max-width: 720px;

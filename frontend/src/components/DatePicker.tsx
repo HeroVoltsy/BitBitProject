@@ -23,14 +23,24 @@ export function DatePicker({
   value,
   onChange,
   placeholder = "Select a date",
+  inline = false,
 }: {
   value: Date | null;
   onChange: (d: Date) => void;
   placeholder?: string;
+  /** Render just the calendar (always visible, no trigger button). */
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => value ?? new Date());
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  // Inline calendars follow the selected date (e.g. a "Tomorrow" preset that
+  // lands in next month).
+  const valueTime = value?.getTime();
+  useEffect(() => {
+    if (inline && valueTime !== undefined) setView(new Date(valueTime));
+  }, [inline, valueTime]);
 
   // Close on outside click / Escape.
   useEffect(() => {
@@ -64,8 +74,56 @@ export function DatePicker({
 
   const pick = (day: number) => {
     onChange(new Date(year, month, day));
-    setOpen(false);
+    if (!inline) setOpen(false);
   };
+
+  const calendar = (
+    <>
+      <div className="cal-month">
+        <button type="button" className="cal-nav" onClick={() => changeMonth(-1)} aria-label="Previous month">
+          <ChevronLeft size={18} strokeWidth={2.4} />
+        </button>
+        <span className="cal-month__label" aria-live="polite">
+          {MONTHS[month]} {year}
+        </span>
+        <button type="button" className="cal-nav" onClick={() => changeMonth(1)} aria-label="Next month">
+          <ChevronRight size={18} strokeWidth={2.4} />
+        </button>
+      </div>
+
+      <div className="cal-grid cal-grid--head" aria-hidden="true">
+        {WEEKDAYS.map((d, i) => (
+          <span key={i} className="cal-weekday">
+            {d}
+          </span>
+        ))}
+      </div>
+
+      <div className="cal-grid">
+        {cells.map((day, i) => {
+          if (day === null) return <span key={i} className="cal-cell cal-cell--empty" />;
+          const date = new Date(year, month, day);
+          const selected = !!value && sameDay(value, date);
+          return (
+            <button
+              key={i}
+              type="button"
+              className={`cal-cell ${selected ? "cal-cell--selected" : ""} ${
+                sameDay(today, date) ? "cal-cell--today" : ""
+              }`}
+              aria-label={formatDate(date)}
+              aria-pressed={selected}
+              onClick={() => pick(day)}
+            >
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+
+  if (inline) return <div className="datepicker datepicker--inline">{calendar}</div>;
 
   return (
     <div className="datepicker" ref={wrapRef}>
@@ -83,44 +141,7 @@ export function DatePicker({
 
       {open && (
         <div className="datepicker__pop card" role="dialog" aria-label="Choose a date">
-          <div className="cal-month">
-            <button type="button" className="cal-nav" onClick={() => changeMonth(-1)} aria-label="Previous month">
-              <ChevronLeft size={18} strokeWidth={2.4} />
-            </button>
-            <span className="cal-month__label">
-              {MONTHS[month]} {year}
-            </span>
-            <button type="button" className="cal-nav" onClick={() => changeMonth(1)} aria-label="Next month">
-              <ChevronRight size={18} strokeWidth={2.4} />
-            </button>
-          </div>
-
-          <div className="cal-grid cal-grid--head">
-            {WEEKDAYS.map((d, i) => (
-              <span key={i} className="cal-weekday">
-                {d}
-              </span>
-            ))}
-          </div>
-
-          <div className="cal-grid">
-            {cells.map((day, i) =>
-              day === null ? (
-                <span key={i} className="cal-cell cal-cell--empty" />
-              ) : (
-                <button
-                  key={i}
-                  type="button"
-                  className={`cal-cell ${
-                    value && sameDay(value, new Date(year, month, day)) ? "cal-cell--selected" : ""
-                  } ${sameDay(today, new Date(year, month, day)) ? "cal-cell--today" : ""}`}
-                  onClick={() => pick(day)}
-                >
-                  {day}
-                </button>
-              )
-            )}
-          </div>
+          {calendar}
         </div>
       )}
     </div>

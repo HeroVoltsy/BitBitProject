@@ -191,39 +191,6 @@
   flex: 1 1 320px;
   max-width: 560px;
 }
-.home-filter-btn {
-  flex: none;
-  position: relative;
-}
-.home-filter-btn--open {
-  background: var(--green-soft);
-  border-color: var(--green);
-  color: var(--green-dark);
-}
-.filter-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: var(--r-pill);
-  background: var(--green);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-/* Filter panel */
-.filter-panel {
-  margin-top: 14px;
-  padding: 20px;
-  animation: page-in 0.2s ease both;
-}
-.filter-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 16px;
-}
 .filter-field {
   display: flex;
   flex-direction: column;
@@ -237,28 +204,397 @@
   cursor: pointer;
   background-color: var(--surface);
 }
-.filter-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
+
+/* ---------------------------------------------------------------------------
+   Filter chips beside the search bar (components/FilterChip.tsx)
+   Hallmark · component: filter chip + popover · theme: project tokens (Sali Ka)
+   states: default · hover · focus · pressed · open · selected
+   (loading / error / success don't apply to a filter chip; the popover's
+    Clear button carries the disabled state)
+   --------------------------------------------------------------------------- */
+.fchip-wrap {
+  --fchip-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  position: relative;
+  flex: none;
 }
-.filter-clear {
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 14px 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14.5px;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.16s var(--fchip-ease), border-color 0.16s var(--fchip-ease),
+    color 0.16s var(--fchip-ease), transform 0.12s var(--fchip-ease);
+}
+.fchip:active {
+  transform: scale(0.97);
+}
+.fchip:focus-visible {
+  border-radius: var(--r-pill);
+}
+.fchip__icon {
+  display: inline-flex;
+  color: var(--text-muted);
+}
+.fchip__label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fchip__badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.fchip__caret {
+  flex: none;
+  color: var(--text-muted);
+  transition: transform 0.18s var(--fchip-ease);
+}
+.fchip--open {
+  border-color: var(--text);
+}
+.fchip--open .fchip__caret {
+  transform: rotate(180deg);
+}
+/* A value is set: brand tint, and the chip shows the value. */
+.fchip--active {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+.fchip--active .fchip__icon,
+.fchip--active .fchip__caret {
+  color: var(--green-dark);
+}
+
+/* Popover (tablet / desktop) */
+.fchip-pop {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 344px;
+  max-width: calc(100vw - 32px);
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-float);
+  transform-origin: top left;
+  animation: fchip-in 0.16s var(--fchip-ease) both;
+}
+/* Set from JS when the chip is too close to the right edge to open rightward. */
+.fchip-pop--end {
+  left: auto;
+  right: 0;
+  transform-origin: top right;
+}
+.fchip-pop--wide {
+  width: 420px;
+  max-height: min(72dvh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 0;
+}
+.fchip-pop--wide .fchip-pop__foot {
+  position: sticky;
+  bottom: 0;
+  margin: 6px -18px 0;
+  padding: 14px 18px;
+  background: var(--surface);
+}
+.fchip-pop__title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 800;
+}
+.fchip-pop__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.fchip-pop__clear {
+  min-height: 40px;
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fchip-pop__clear:disabled {
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: default;
+}
+.fchip-pop__done {
+  min-height: 40px;
+  padding: 0 20px;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 800;
+  font-size: 14px;
+  transition: opacity 0.16s var(--fchip-ease), transform 0.12s var(--fchip-ease);
+}
+.fchip-pop__done:active {
+  transform: scale(0.97);
+}
+.fchip-pop__done:focus-visible {
+  border-radius: var(--r-pill);
+}
+.fchip-scrim {
+  display: none;
+}
+.fchip-pop button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Sections of the combined Filters panel */
+.fsec + .fsec {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.fsec__title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.fsec .fpresets {
+  margin-bottom: 0;
+}
+.fsec__calendar {
+  margin-top: 14px;
+}
+.fpreset--icon {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+}
+
+/* Quick pick chips (category, date, location) */
+.fpresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.fpreset {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 38px;
+  padding: 0 14px;
   border-radius: var(--r-pill);
-  color: var(--green-dark);
-  font-weight: 800;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
   font-size: 13.5px;
-  transition: background 0.16s ease;
+  white-space: nowrap;
+  transition: background-color 0.16s var(--fchip-ease), border-color 0.16s var(--fchip-ease),
+    color 0.16s var(--fchip-ease);
 }
-.filter-clear:hover:not(:disabled) {
-  background: var(--green-soft);
+.fpreset:focus-visible {
+  border-radius: var(--r-pill);
 }
-.filter-clear:disabled {
-  color: var(--text-muted);
-  cursor: default;
+.fpreset[aria-pressed="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+/* Inline calendar inside the Date popover */
+.datepicker--inline .cal-month {
+  margin-bottom: 10px;
+}
+.datepicker--inline .cal-month__label {
+  font-size: 15px;
+}
+.datepicker--inline .cal-cell {
+  font-size: 13.5px;
+  border-radius: var(--r-sm);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Hover only on devices that really hover (no sticky hover after a tap). */
+@media (hover: hover) {
+  .fchip:hover {
+    border-color: var(--text-muted);
+  }
+  .fchip--active:hover {
+    border-color: var(--green-dark);
+  }
+  .fchip-pop__done:hover {
+    opacity: 0.88;
+  }
+  .fpreset:hover {
+    border-color: var(--text-muted);
+  }
+}
+
+@keyframes fchip-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fchip-sheet {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes fchip-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Phone: search takes the full row, chips go below it, and popovers become a
+   bottom sheet over a dimmed backdrop. */
+@media (max-width: 760px) {
+  .home-toolbar {
+    gap: 10px;
+  }
+  .home-toolbar {
+    flex-wrap: nowrap;
+  }
+  .home-toolbar .home-search {
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
+  }
+  .fchip-wrap {
+    position: static;
+  }
+  .fchip-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(15, 25, 18, 0.45);
+    animation: fchip-fade 0.18s var(--fchip-ease) both;
+  }
+  .fchip-pop,
+  .fchip-pop--end {
+    position: fixed;
+    z-index: 111;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    max-height: 85dvh;
+    padding-bottom: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: 10px;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    border-bottom: none;
+    animation: fchip-sheet 0.24s var(--fchip-ease) both;
+  }
+  .fchip-pop::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    margin: 0 auto 14px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+  }
+  .fchip-pop .datepicker--inline,
+  .fchip-pop .fpresets {
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .fpreset {
+    min-height: 44px;
+    padding: 0 16px;
+  }
+  .fchip-pop .cal-nav {
+    width: 44px;
+    height: 44px;
+  }
+  .fchip-pop__done {
+    min-height: 46px;
+    padding: 0 28px;
+  }
+  .fchip-pop--wide .fchip-pop__foot {
+    margin: 6px -20px 0;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .fsec__calendar .datepicker--inline {
+    max-width: 380px;
+  }
+}
+
+@media (max-width: 400px) {
+  .fchip {
+    padding: 0 12px;
+  }
+  .fchip__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fchip-pop,
+  .fchip-pop--end,
+  .fchip-scrim {
+    animation: fchip-fade 0.12s linear both;
+  }
+  .fchip,
+  .fchip__caret,
+  .fpreset,
+  .fchip-pop__done {
+    transition: none;
+  }
+  .fchip:active,
+  .fchip-pop__done:active {
+    transform: none;
+  }
 }
 .home-search {
   display: flex;
@@ -3736,15 +4072,98 @@ button.setting-row:hover {
   }
 }
 
-/* Bell menu: staff invitation rows are buttons */
-.notif__item--action {
+/* Bell menu: notifications about an event open that event */
+.notif__pop {
+  max-height: min(70dvh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.notif__item--link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
   width: 100%;
+  min-height: 44px;
   text-align: left;
-  cursor: pointer;
+  color: var(--text);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.notif__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.notif__chev {
+  color: var(--text-muted);
+  transition: transform 0.16s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.notif__item--link:focus-visible {
+  border-radius: var(--r-md);
 }
 @media (hover: hover) {
-  .notif__item--action:hover {
-    background: var(--surface-alt);
+  .notif__item--link:hover .notif__chev {
+    transform: translateX(2px);
+    color: var(--text);
+  }
+}
+.notif__item--link:active {
+  background: var(--surface-alt);
+}
+.notif__empty {
+  margin: 0;
+  padding: 10px 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .notif__chev {
+    transition: none;
+  }
+}
+
+/* Bell menu: staff invitations carry Accept / Decline right in the row */
+.notif__invite {
+  gap: 4px;
+  margin-bottom: 4px;
+  background: var(--green-soft);
+}
+.notif__invite:hover {
+  background: var(--green-soft);
+}
+.notif__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.notif__btn {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+  box-shadow: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.notif__btn:focus-visible {
+  border-radius: var(--r-pill);
+}
+
+/* Staff link pulses once right after an invite is accepted */
+.navlink--new {
+  animation: navlink-new 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 2;
+}
+@keyframes navlink-new {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  40% { box-shadow: 0 0 0 4px var(--green-soft), 0 0 0 6px var(--green); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .navlink--new {
+    animation: none;
+    background: var(--green-soft);
   }
 }
 
@@ -3857,3 +4276,165 @@ button.setting-row:hover {
 .onboarding-skip:hover { color: var(--text); text-decoration: underline; }
 .onboarding-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 @media (max-width: 480px) { .joiner-onboarding { padding: 26px 20px; } .onboarding-option { padding: 14px; font-size: 13px; } .onboarding-interest { padding: 14px; } }
+
+/* ---------------------------------------------------------------------------
+   Leave ("unjoin") an event — link on the event page + 2-step dialog
+   --------------------------------------------------------------------------- */
+.leave-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 28px 0 0;
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.leave-link {
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--danger);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  touch-action: manipulation;
+}
+.leave-modal {
+  width: min(480px, calc(100% - 32px));
+}
+.leave-modal__step {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.leave-modal__list {
+  margin: 4px 0 20px;
+  padding-left: 20px;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.6;
+}
+.leave-modal__reasons {
+  margin: 0 0 24px;
+  padding: 0;
+  border: 0;
+}
+.leave-modal__reasons legend {
+  margin-bottom: 10px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+.leave-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.leave-modal__actions > button {
+  justify-content: center;
+  flex: 1 1 160px;
+  min-height: 48px;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 22px;
+  border-radius: var(--r-pill);
+  background: var(--danger);
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
+  transition: opacity 0.16s ease, transform 0.12s ease;
+}
+.btn-danger:active {
+  transform: scale(0.98);
+}
+.btn-danger:focus-visible,
+.leave-modal__actions .btn-ghost:focus-visible,
+.leave-modal__actions .btn-primary:focus-visible {
+  border-radius: var(--r-pill);
+}
+@media (hover: hover) {
+  .btn-danger:hover {
+    opacity: 0.9;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-danger {
+    transition: none;
+  }
+  .btn-danger:active {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Minimal event card (Home feed) — one accent: green only on "Sasali"
+   --------------------------------------------------------------------------- */
+.eventcard--minimal .eventcard__body {
+  gap: 4px;
+}
+.eventcard__cat {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.eventcard--minimal .eventcard__title {
+  margin: 2px 0 4px;
+}
+.eventcard__meta {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.eventcard--minimal .eventcard__foot {
+  margin-top: 10px;
+}
+/* Person icon beside the attendee count, in the brand green.
+   --green-dark is the readable green on both light and dark surfaces. */
+.eventcard__going {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.eventcard__going-icon {
+  flex: none;
+  color: var(--green-dark);
+}
+.sasali-pill.sasali-pill--solid,
+.eventcard__sasali.sasali-pill--solid,
+.eventcard__sasali.sasali-pill--solid:hover {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.sasali-pill.sasali-pill--quiet,
+.eventcard__sasali.sasali-pill--quiet,
+.eventcard__sasali.sasali-pill--quiet:hover {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+@media (hover: hover) {
+  .eventcard__sasali.sasali-pill--solid:hover {
+    background: var(--green-dark);
+    border-color: var(--green-dark);
+  }
+  .eventcard__sasali.sasali-pill--quiet:hover {
+    border-color: var(--text-muted);
+  }
+}
+[data-theme="dark"] .eventcard__sasali.sasali-pill--solid:hover {
+  background: var(--green);
+  filter: brightness(1.08);
+}

@@ -1,4 +1,4 @@
-import { Check, Clock, Heart, MapPin, Ticket } from "lucide-react";
+import { Check, Clock, Heart, MapPin, Ticket, UserRound } from "lucide-react";
 import type { EventItem } from "../types";
 import { CategoryBadge } from "./CategoryBadge";
 import { StripePlaceholder } from "./StripePlaceholder";
@@ -19,6 +19,7 @@ export function EventCard({
   onToggleLiked,
   joined = false,
   onSasali,
+  minimal = false,
 }: {
   event: EventItem;
   onOpen: () => void;
@@ -26,11 +27,27 @@ export function EventCard({
   onToggleLiked?: () => void;
   joined?: boolean;
   onSasali?: () => void;
+  /** One-accent design (Home feed): grey text, green only on the join action. */
+  minimal?: boolean;
 }) {
-  if (!onToggleLiked && !onSasali) return <CardButton event={event} onOpen={onOpen} joined={joined} />;
+  if (!onToggleLiked && !onSasali)
+    return <CardButton event={event} onOpen={onOpen} joined={joined} minimal={minimal} />;
+  const sasaliClass = minimal
+    ? joined
+      ? "sasali-pill--quiet"
+      : "sasali-pill--solid"
+    : joined
+      ? "sasali-pill--on"
+      : "";
   return (
-    <div className="eventcard-wrap">
-      <CardButton event={event} onOpen={onOpen} sasaliSlot={Boolean(onSasali)} joined={joined} />
+    <div className={`eventcard-wrap ${minimal ? "eventcard-wrap--minimal" : ""}`}>
+      <CardButton
+        event={event}
+        onOpen={onOpen}
+        sasaliSlot={Boolean(onSasali)}
+        joined={joined}
+        minimal={minimal}
+      />
       {onToggleLiked && (
         <button
           type="button"
@@ -45,18 +62,28 @@ export function EventCard({
       {onSasali && (
         <button
           type="button"
-          className={`sasali-pill eventcard__sasali ${joined ? "sasali-pill--on" : ""}`}
+          className={`sasali-pill eventcard__sasali ${sasaliClass}`}
           aria-label={joined ? `You're going to ${event.title}. Open event` : `Join ${event.title}`}
           onClick={onSasali}
         >
-          <SasaliLabel joined={joined} />
+          <SasaliLabel joined={joined} minimal={minimal} />
         </button>
       )}
     </div>
   );
 }
 
-function SasaliLabel({ joined }: { joined: boolean }) {
+function SasaliLabel({ joined, minimal = false }: { joined: boolean; minimal?: boolean }) {
+  if (minimal)
+    return joined ? (
+      <>
+        <Check size={14} strokeWidth={3} aria-hidden="true" /> Going
+      </>
+    ) : (
+      <>
+        <Ticket size={14} strokeWidth={2.4} aria-hidden="true" /> Sasali
+      </>
+    );
   return joined ? (
     <>
       <Check size={14} strokeWidth={3} aria-hidden="true" /> GOING
@@ -73,13 +100,16 @@ function CardButton({
   onOpen,
   sasaliSlot = false,
   joined = false,
+  minimal = false,
 }: {
   event: EventItem;
   onOpen: () => void;
   /** Leave room for the sasali button that's layered on top of the card. */
   sasaliSlot?: boolean;
   joined?: boolean;
+  minimal?: boolean;
 }) {
+  if (minimal) return <MinimalCardButton event={event} onOpen={onOpen} sasaliSlot={sasaliSlot} joined={joined} />;
   return (
     <button className="eventcard" onClick={onOpen} aria-label={`Open ${event.title}`}>
       <div className="eventcard__cover">
@@ -118,6 +148,53 @@ function CardButton({
           ) : (
             <span className="sasali-pill"><SasaliLabel joined={joined} /></span>
           )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/** Home feed card: one accent color (green, on the join action only). */
+function MinimalCardButton({
+  event,
+  onOpen,
+  sasaliSlot,
+  joined,
+}: {
+  event: EventItem;
+  onOpen: () => void;
+  sasaliSlot: boolean;
+  joined: boolean;
+}) {
+  return (
+    <button className="eventcard eventcard--minimal" onClick={onOpen} aria-label={`Open ${event.title}`}>
+      <div className="eventcard__cover">
+        <StripePlaceholder className="eventcard__stripes" />
+        <span className="eventcard__date">
+          <span className="eventcard__date-m">{event.monthLabel}</span>
+          <span className="eventcard__date-d">{event.day}</span>
+        </span>
+      </div>
+
+      <div className="eventcard__body">
+        <span className="eventcard__cat">{event.category}</span>
+        <h3 className="eventcard__title">{event.title}</h3>
+        <span className="eventcard__meta">{event.dateLine}</span>
+        <span className="eventcard__meta">{event.location}</span>
+
+        <div className="eventcard__foot">
+          <span className="eventcard__going">
+            <UserRound size={16} strokeWidth={2.4} className="eventcard__going-icon" aria-hidden="true" />
+            <span className="going__count">{event.going} going</span>
+          </span>
+          <span
+            className={`sasali-pill ${sasaliSlot ? "sasali-pill--slot" : ""} ${
+              joined ? "sasali-pill--quiet" : "sasali-pill--solid"
+            }`}
+            aria-hidden={sasaliSlot || undefined}
+          >
+            <SasaliLabel joined={joined} minimal />
+          </span>
         </div>
       </div>
     </button>

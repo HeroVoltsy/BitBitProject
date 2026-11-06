@@ -22,6 +22,10 @@
   --green-dark: #1B5E20;
   --green-soft: #E9F2E9;
 
+  /* Destructive actions (leave event) */
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+
   /* Category accents */
   --orange: #de7b45;
   --orange-soft: #fff3eb;
@@ -71,6 +75,9 @@
   --green: #43a047;
   --green-dark: #7cc47f;
   --green-soft: #1f2f1d;
+
+  --danger: #c93c37;
+  --danger-soft: #3a1d1b;
 
   --orange: #e8a06a;
   --orange-soft: #33261a;
