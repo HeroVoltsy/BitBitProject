@@ -95,7 +95,7 @@ export function EventDetailScreen({
         <p className="detail-host">
           Hosted by{" "}
           <button className="host-link" onClick={onOpenHost}>
-            {USER.name}
+            {event.hostName ?? USER.name}
           </button>
         </p>
 
@@ -136,7 +136,11 @@ export function EventDetailScreen({
           <p className="detail-about">{ABOUT}</p>
         </section>
 
-        {attending && !event.hosting && onLeave && (
+        {event.ended && (
+          <p className="ended-note">This event has ended. You can rate it from your Profile → Past.</p>
+        )}
+
+        {attending && !event.hosting && !event.ended && onLeave && (
           <p className="leave-row">
             <span className="muted">Can&rsquo;t make it?</span>
             <button type="button" className="leave-link" onClick={() => setLeaveOpen(true)}>
@@ -162,7 +166,7 @@ export function EventDetailScreen({
               )}
             </div>
           </div>
-        ) : (
+        ) : event.ended ? null : (
           // Pinned to the bottom of the screen so the main action stays in reach while scrolling.
           // Portaled to <body>: the page's entry animation uses transform, which would
           // otherwise make position: fixed scroll along with the page.
@@ -217,7 +221,6 @@ export function EventDetailScreen({
             <div className="qr-modal__code" aria-hidden="true">
               <QrCode size={180} strokeWidth={1.2} />
             </div>
-            <span className="qr-card__id">ID #{USER.membershipId}</span>
           </div>
         </div>
       )}

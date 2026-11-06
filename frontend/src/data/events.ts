@@ -221,7 +221,6 @@ export const USER = {
   email: "kyle.starosa@community.com",
   memberSince: "Member since Mar 2024",
   initials: "KR",
-  membershipId: "CMN-40217",
 };
 
 /** Every event the current user has organized, newest first. Profile stats are derived from this. */
@@ -315,7 +314,75 @@ export const HOST_STATS = {
     : 0,
 };
 
-/** Look up any known event (feed or organized) by id. */
+/**
+ * Past events the current user joined (sample data). In the real app the
+ * backend returns these, split from upcoming events by each event's real date.
+ */
+export type PastEvent = EventItem & { dateLabel: string; hostName: string };
+export const PAST_JOINED_EVENTS: PastEvent[] = [
+  {
+    id: "naga-food-festival",
+    title: "Naga Food Festival",
+    category: "Pop-Up",
+    monthLabel: "OCT",
+    day: "18",
+    dateLine: "Sun, Oct 18 · 4:00 PM",
+    location: "Plaza Quezon, Naga City",
+    going: 310,
+    attending: true,
+    ended: true,
+    dateLabel: "Oct 18, 2026",
+    hostName: "Andrea Reyes",
+  },
+  {
+    id: "bicol-indie-night",
+    title: "Bicol Indie Music Night",
+    category: "Concert",
+    monthLabel: "OCT",
+    day: "03",
+    dateLine: "Sat, Oct 03 · 7:00 PM",
+    location: "Avenue Square, Magsaysay Ave",
+    going: 150,
+    attending: true,
+    ended: true,
+    dateLabel: "Oct 3, 2026",
+    hostName: "Paolo Mendoza",
+  },
+  {
+    id: "coastal-cleanup",
+    title: "Coastal Clean-up Saturday",
+    category: "Volunteer",
+    monthLabel: "SEP",
+    day: "05",
+    dateLine: "Sat, Sep 05 · 6:00 AM",
+    location: "Pasacao Beach, Camarines Sur",
+    going: 42,
+    attending: true,
+    ended: true,
+    dateLabel: "Sep 5, 2026",
+    hostName: "Miguel Torres",
+  },
+  {
+    id: "sunrise-5k",
+    title: "Sunrise 5K Run",
+    category: "Fun Run",
+    monthLabel: "JUL",
+    day: "12",
+    dateLine: "Sun, Jul 12 · 5:00 AM",
+    location: "Metro Naga Sports Complex",
+    going: 180,
+    attending: true,
+    ended: true,
+    dateLabel: "Jul 12, 2026",
+    hostName: "Kristine Bautista",
+  },
+];
+
+/** Look up any known event (feed, organized, or past) by id. */
 export function findEvent(id: string): EventItem | undefined {
-  return FEED_EVENTS.find((e) => e.id === id) ?? ORGANIZED_EVENTS.find((e) => e.id === id);
+  return (
+    FEED_EVENTS.find((e) => e.id === id) ??
+    ORGANIZED_EVENTS.find((e) => e.id === id) ??
+    PAST_JOINED_EVENTS.find((e) => e.id === id)
+  );
 }

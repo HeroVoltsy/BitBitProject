@@ -17,7 +17,10 @@ export function StaffScreen({
     .map((i) => ({ invite: i, event: findEvent(i.eventId) }))
     .filter((x): x is { invite: StaffInvite; event: EventItem } => x.event !== undefined);
   const pending = withEvent.filter((x) => x.invite.status === "pending");
-  const accepted = withEvent.filter((x) => x.invite.status === "accepted");
+  // Upcoming first; ended events stay listed (read-only) below them.
+  const accepted = withEvent
+    .filter((x) => x.invite.status === "accepted")
+    .sort((a, b) => Number(Boolean(a.event.ended)) - Number(Boolean(b.event.ended)));
 
   return (
     <div className="page page--narrow">
@@ -38,14 +41,28 @@ export function StaffScreen({
                 </p>
                 <h3 className="staff-invite-card__title">{event.title}</h3>
                 <EventMeta event={event} />
-                <div className="staff-invite-card__actions">
-                  <button type="button" className="btn-primary" onClick={() => onRespond(event.id, true)}>
-                    Accept
-                  </button>
-                  <button type="button" className="btn-ghost" onClick={() => onRespond(event.id, false)}>
-                    Decline
-                  </button>
-                </div>
+                {event.ended ? (
+                  <div className="staff-invite-card__actions staff-expired">
+                    <span className="staff-ended-tag">This invitation expired</span>
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      aria-label={`Dismiss expired invitation for ${event.title}`}
+                      onClick={() => onRespond(event.id, false)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : (
+                  <div className="staff-invite-card__actions">
+                    <button type="button" className="btn-primary" onClick={() => onRespond(event.id, true)}>
+                      Accept
+                    </button>
+                    <button type="button" className="btn-ghost" onClick={() => onRespond(event.id, false)}>
+                      Decline
+                    </button>
+                  </div>
+                )}
               </article>
             ))}
           </div>
@@ -57,15 +74,19 @@ export function StaffScreen({
         {accepted.length > 0 ? (
           <div className="stack">
             {accepted.map(({ invite, event }) => (
-              <article className="staff-event card" key={event.id}>
+              <article className={`staff-event card ${event.ended ? "staff-event--ended" : ""}`} key={event.id}>
                 <div className="staff-event__info">
                   <h3 className="staff-invite-card__title">{event.title}</h3>
                   <EventMeta event={event} />
                   <span className="muted staff-event__host">Host: {invite.invitedBy}</span>
                 </div>
-                <button type="button" className="btn-primary staff-event__btn" onClick={() => onOpenScanner(event)}>
-                  <ScanLine size={18} strokeWidth={2.2} aria-hidden="true" /> Open Scanner
-                </button>
+                {event.ended ? (
+                  <span className="staff-ended-tag">Event ended · scanning closed</span>
+                ) : (
+                  <button type="button" className="btn-primary staff-event__btn" onClick={() => onOpenScanner(event)}>
+                    <ScanLine size={18} strokeWidth={2.2} aria-hidden="true" /> Open Scanner
+                  </button>
+                )}
               </article>
             ))}
           </div>

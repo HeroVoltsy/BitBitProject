@@ -31,4 +31,7 @@ export const SAMPLE_EVENT_STAFF: Record<string, StaffMember[]> = {
 /** Invitations the current user received (so the staff side can be demoed). */
 export const SAMPLE_RECEIVED_INVITES: StaffInvite[] = [
   { eventId: "naga-fun-run", invitedBy: "Paolo Mendoza", status: "pending" },
+  // Ended events, to demo what happens to staff access afterwards:
+  { eventId: "bicol-indie-night", invitedBy: "Paolo Mendoza", status: "accepted" },
+  { eventId: "coastal-cleanup", invitedBy: "Miguel Torres", status: "pending" },
 ];

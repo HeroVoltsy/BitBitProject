@@ -1463,9 +1463,11 @@
 .profile-top .page-title {
   margin: 0;
 }
+/* One identity card (the old Membership QR card was removed: each event
+   has its own check-in QR instead). */
 .profile-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: 1fr;
   gap: 24px;
   align-items: stretch;
 }
@@ -1516,38 +1518,6 @@
 .tool-btn:hover {
   background: var(--green-soft);
   color: var(--green-dark);
-}
-.qr-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 28px;
-}
-.qr-card__text h3 {
-  margin: 0 0 6px;
-  font-size: 20px;
-}
-.qr-card__id {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 6px 12px;
-  border-radius: var(--r-pill);
-  background: var(--surface-alt);
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.03em;
-}
-.qr-graphic {
-  display: grid;
-  place-items: center;
-  width: 140px;
-  height: 140px;
-  border-radius: var(--r-md);
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  color: var(--text);
-  flex: none;
 }
 .segmented {
   display: inline-flex;
@@ -4437,4 +4407,421 @@ button.setting-row:hover {
 [data-theme="dark"] .eventcard__sasali.sasali-pill--solid:hover {
   background: var(--green);
   filter: brightness(1.08);
+}
+
+/* ---------------------------------------------------------------------------
+   Profile → Past: past events you joined + rating them
+   --------------------------------------------------------------------------- */
+.past-sub {
+  margin: 4px 0 16px;
+  font-weight: 600;
+}
+.past-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 14px 6px 6px;
+}
+.past-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  text-align: left;
+  color: var(--text);
+}
+.past-row__title {
+  font-size: 15.5px;
+  overflow-wrap: anywhere;
+}
+.past-row__meta {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.past-row__mine {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.mini-stars {
+  display: inline-flex;
+  gap: 1px;
+  color: #e0a417;
+}
+.past-row__tag {
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.past-row__rate {
+  flex: none;
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 14px;
+  box-shadow: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.past-row__rate:focus-visible,
+.past-row__main:focus-visible {
+  border-radius: var(--r-pill);
+}
+.past-row__main:focus-visible {
+  border-radius: var(--r-md);
+}
+@media (hover: hover) {
+  .past-row__main:hover {
+    background: var(--surface-alt);
+  }
+}
+.ended-note {
+  margin: 24px 0 0;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Rate dialog */
+.rate-modal {
+  width: min(500px, calc(100% - 32px));
+}
+.rate-stars {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+.rate-stars legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+.rate-stars__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.rate-star {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-md);
+  color: #e0a417;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.rate-star:has(input:focus-visible) {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+.rate-stars__word {
+  margin-left: 8px;
+  min-width: 80px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.field-error {
+  margin: 8px 0 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--danger);
+}
+.rate-comment {
+  margin-bottom: 18px;
+}
+.rate-comment .textarea {
+  font-size: 16px; /* 16px stops iOS from zooming in on focus */
+}
+.rate-comment__count {
+  align-self: flex-end;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rate-anon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+}
+.rate-anon__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 14px;
+}
+.rate-anon__text .muted {
+  font-size: 13px;
+  font-weight: 600;
+}
+@media (max-width: 480px) {
+  .past-row {
+    flex-wrap: wrap;
+    padding: 6px 6px 12px;
+  }
+  .past-row__rate {
+    margin-left: 12px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Profile — compact header + stats, date-block rows
+   --------------------------------------------------------------------------- */
+.pf-title {
+  margin-bottom: 18px;
+}
+.pf-head {
+  padding: 22px 24px;
+}
+.pf-head__top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pf-head__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--green), var(--green-dark));
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+}
+.pf-head__id {
+  flex: 1;
+  min-width: 0;
+}
+.pf-head__name {
+  margin: 0 0 2px;
+  font-size: clamp(20px, 2.4vw, 24px);
+  overflow-wrap: anywhere;
+}
+.pf-head__meta {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.pf-head__settings {
+  flex: none;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.pf-head__settings:focus-visible {
+  border-radius: var(--r-pill);
+}
+.pf-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.pf-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 10px 8px;
+  border-radius: var(--r-md);
+  border: 1px solid transparent;
+  color: var(--text);
+  touch-action: manipulation;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+.pf-stat strong {
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.pf-stat span {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.pf-stat__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #e0a417;
+}
+@media (hover: hover) {
+  button.pf-stat:hover {
+    background: var(--green-soft);
+    border-color: var(--green);
+  }
+  button.pf-stat:hover span {
+    color: var(--green-dark);
+  }
+}
+.pf-tabs {
+  margin-top: 24px;
+}
+/* Neutral counts (red badges read as alerts) */
+.pf-tabs .segmented__count {
+  background: var(--border);
+  color: var(--text-muted);
+}
+.pf-tabs .segmented__tab--active .segmented__count {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+
+/* Date block used in Going + Past rows */
+.pf-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-md);
+  background: var(--surface-alt);
+  line-height: 1.05;
+}
+.pf-date__m {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.pf-date__d {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+}
+.pf-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 16px 12px 12px;
+  text-align: left;
+  color: var(--text);
+  touch-action: manipulation;
+  transition: border-color 0.16s ease;
+}
+.pf-row__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pf-row__title {
+  font-size: 15.5px;
+  overflow-wrap: anywhere;
+}
+.pf-row__meta {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.pf-row__chev {
+  flex: none;
+  color: var(--text-muted);
+}
+@media (hover: hover) {
+  .pf-row:hover {
+    border-color: var(--text-muted);
+  }
+}
+.pf-row:focus-visible {
+  border-radius: var(--r-lg);
+}
+/* Past rows: date block beside the text */
+.past-row__main {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+.pf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 20px;
+  text-align: center;
+}
+.pf-empty__cta {
+  margin-top: 10px;
+  min-height: 44px;
+}
+@media (max-width: 480px) {
+  .pf-head {
+    padding: 18px 16px;
+  }
+  .pf-head__avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 18px;
+  }
+  .pf-head__settings {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .pf-head__settings-label {
+    display: none;
+  }
+  /* Email and account type on their own lines, no stray dot */
+  .pf-head__dot {
+    display: none;
+  }
+  .pf-head__email,
+  .pf-head__role {
+    display: block;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-stat,
+  .pf-row {
+    transition: none;
+  }
+}
+
+/* Staff: ended events and expired invitations (read-only) */
+.staff-ended-tag {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.staff-event--ended .staff-invite-card__title {
+  color: var(--text-muted);
+}
+.staff-expired {
+  align-items: center;
 }
