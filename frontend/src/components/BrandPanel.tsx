@@ -14,7 +14,7 @@ export function BrandPanel() {
     <aside className="auth-hero auth-hero--modal" aria-label="About Sali Ka">
       <div className="auth-hero__top">
         <span className="brand__mark auth-hero__mark" aria-hidden="true">
-          <ParrotLogo size={26} />
+          <ParrotLogo size={48} />
         </span>
         <span className="auth-hero__name" translate="no">
           sali ka<span className="auth-hero__q">?</span>

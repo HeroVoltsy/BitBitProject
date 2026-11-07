@@ -1,4 +1,4 @@
-/** Sali Ka parrot-envelope icon shared by the navigation and auth screens. */
+/** Rounded parrot-envelope app icon shared by navigation and auth screens. */
 export function ParrotLogo({
   size = 22,
   className,
@@ -10,10 +10,12 @@ export function ParrotLogo({
 }) {
   return (
     <img
-      src="/sali-ka-icon.webp"
+      src="/sali-ka-app-icon-128.png"
+      srcSet="/sali-ka-app-icon-128.png 128w, /sali-ka-app-icon-256.png 256w, /sali-ka-app-icon.png 1254w"
+      sizes={size + "px"}
       width={size}
       height={size}
-      className={className}
+      className={["parrot-logo", className].filter(Boolean).join(" ")}
       alt={title}
     />
   );

@@ -45,10 +45,10 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--green), var(--green-dark));
+  background: transparent;
   color: #fff;
   font-size: 18px;
-  box-shadow: 0 4px 10px rgba(46, 125, 50, 0.32);
+  box-shadow: none;
 }
 .brand__q {
   color: var(--green);
@@ -2457,7 +2457,7 @@ button.setting-row:hover {
   height: 48px;
   border-radius: 14px;
   font-size: 24px;
-  background: rgba(255, 255, 255, 0.18);
+  background: transparent;
   box-shadow: none;
   color: #fff;
 }
@@ -4825,3 +4825,6 @@ button.setting-row:hover {
 .staff-expired {
   align-items: center;
 }
+
+/* Let the rounded app tile fill its holder, without a second background frame. */
+.brand__mark > .parrot-logo { display: block; width: 100%; height: 100%; object-fit: contain; }

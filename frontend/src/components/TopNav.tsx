@@ -161,7 +161,7 @@ export function TopNav({
       <div className="topnav__inner">
         <button className="brand" onClick={() => go(isHost ? "host-dashboard" : "home")} aria-label="Sali Ka home">
           <span className="brand__mark">
-            <ParrotLogo size={22} />
+            <ParrotLogo size={34} />
           </span>
           <span className="brand__name">
             sali ka<span className="brand__q">?</span>
