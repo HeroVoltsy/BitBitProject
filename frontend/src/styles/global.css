@@ -305,11 +305,9 @@ h1, h2, h3, h4, h5, h6,
 }
 /* Green gradients need real depth in dark mode (green-dark is a light text
    color there, so drive these from explicit deep-green stops instead). */
-[data-theme="dark"] .brand__mark,
 [data-theme="dark"] .topnav__avatar,
 [data-theme="dark"] .identity-card__avatar,
-[data-theme="dark"] .settings-summary__avatar,
-[data-theme="dark"] .auth-hero__mark {
+[data-theme="dark"] .settings-summary__avatar {
   background: linear-gradient(135deg, #43a047, #27682e);
 }
 [data-theme="dark"] .btn-primary:hover {
