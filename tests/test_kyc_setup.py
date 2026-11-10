@@ -8,10 +8,8 @@ from dotenv import dotenv_values
 
 
 def helper(tmp_path):
-    scripts = tmp_path / "scripts"
-    scripts.mkdir()
-    target = scripts / "configure_kyc.py"
-    shutil.copyfile(Path(__file__).resolve().parents[1] / "scripts/configure_kyc.py", target)
+    target = tmp_path / "configure_kyc.py"
+    shutil.copyfile(Path(__file__).resolve().parents[1] / "configure_kyc.py", target)
     return target
 
 
