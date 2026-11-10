@@ -3,6 +3,9 @@ uvicorn[standard]
 sqlalchemy[asyncio]
 asyncpg
 pydantic-settings
+email-validator
+cryptography
+python-multipart
 alembic
 PyJWT
 pwdlib[argon2]

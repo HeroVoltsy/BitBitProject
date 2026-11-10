@@ -91,7 +91,8 @@ Found a bug or have an idea? Open an **Issue** here on GitHub and tell us about 
 ## For developers
 
 Want to run Sali Ka on your own computer? The technical setup guide is in
-[`frontend/README.md`](frontend/README.md).
+[`frontend/README.md`](frontend/README.md). For the Python API, PostgreSQL, and KYC
+setup, see [`docs/backend-setup.md`](docs/backend-setup.md).
 
 ---
 

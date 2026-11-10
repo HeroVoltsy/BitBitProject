@@ -1,7 +1,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import CheckConstraint, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
@@ -9,6 +9,14 @@ from src.db.base import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'admin')", name="ck_users_role"),
+    )
+
+    # Internal permissions; public signup never accepts this field.
+    role: Mapped[str] = mapped_column(
+        String(20), default="user", server_default="user", nullable=False,
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
