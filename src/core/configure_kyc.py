@@ -7,7 +7,7 @@ from dotenv import dotenv_values, set_key
 
 
 def main() -> None:
-    env_path = Path(__file__).resolve().parent / ".env"
+    env_path = Path(__file__).resolve().parents[2] / ".env"
     if not env_path.is_file():
         raise SystemExit("Create .env from .env.example and configure your database first.")
 
