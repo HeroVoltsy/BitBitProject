@@ -27,7 +27,7 @@ target_metadata = Base.metadata
 def run_migrations_offline() -> None:
     """Generate migration SQL without opening a database connection."""
     context.configure(
-        url=settings.DATABASE_URL,
+        url=Settings().DATABASE_URL,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -65,7 +65,11 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        do_run_migrations(connection)
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():

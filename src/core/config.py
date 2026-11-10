@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
 
+    # Leave empty to disable KYC submission until a Fernet key is configured.
+    KYC_ENCRYPTION_KEY: str = ""
+    KYC_UPLOAD_DIR: str = "var/kyc"
+
 
 @lru_cache
 def get_settings() -> Settings:

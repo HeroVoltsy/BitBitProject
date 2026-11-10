@@ -11,6 +11,9 @@ venv/
 .env.*
 !.env.example
 
+# Private KYC documents
+/var/kyc/
+
 # Testing and coverage
 .pytest_cache/
 .coverage
