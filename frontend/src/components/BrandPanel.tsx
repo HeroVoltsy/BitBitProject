@@ -24,11 +24,13 @@ export function BrandPanel() {
       <div className="auth-hero__art">
         {artOk ? (
           <img
-            src="/sali-ka-logo.webp"
+            src="/sali-ka-logo-480.png"
+            srcSet="/sali-ka-logo-480.png 480w, /sali-ka-logo.png 960w"
+            sizes="(min-width: 961px) 260px, 240px"
             className="auth-hero__logo"
             alt=""
-            width={1450}
-            height={1085}
+            width={960}
+            height={720}
             decoding="async"
             onError={() => setArtOk(false)}
           />
