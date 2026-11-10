@@ -11,7 +11,7 @@ export function ParrotLogo({
   return (
     <img
       src="/sali-ka-app-icon-128.png"
-      srcSet="/sali-ka-app-icon-128.png 128w, /sali-ka-app-icon-256.png 256w, /sali-ka-app-icon.png 1254w"
+      srcSet="/sali-ka-app-icon-128.png 128w, /sali-ka-app-icon-256.png 256w, /sali-ka-app-icon.png 1024w"
       sizes={size + "px"}
       width={size}
       height={size}
