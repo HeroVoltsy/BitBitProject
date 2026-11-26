@@ -22,8 +22,7 @@ import { shouldOnboardJoiner, type DiscoveryProfile } from "../discovery";
  * Signed in → the action runs now. Signed out → the sign-in pop-up opens and the
  * action runs right after they log in or sign up.
  *
- * SECURITY: front-end UX gate only (see useAuth.ts). It hides buttons, it does
- * not protect data — real checks must happen on the server.
+ * Protected API requests are authenticated independently on the server.
  */
 
 interface Prompt {
@@ -50,27 +49,38 @@ export const useAuthGate = () => useContext(AuthGateContext);
 
 export function AuthGateProvider({
   signedIn,
+  restoring = false,
   onLogin,
+  onSavePreferences,
   children,
 }: {
   signedIn: boolean;
+  restoring?: boolean;
   onLogin: (s: Session) => void;
+  onSavePreferences: (profile: DiscoveryProfile) => Promise<Session>;
   children: ReactNode;
 }) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [onboarding, setOnboarding] = useState<{ session: Session; action?: () => void } | null>(null);
   const onboardingFinished = useRef(false);
+  useEffect(() => {
+    if (!signedIn && !restoring) setOnboarding(null);
+  }, [signedIn, restoring]);
   const notify = useToast();
 
   const requireAuth = useCallback(
     (action: () => void, reason?: string) => {
+      if (restoring) { notify("Checking your session..."); return; }
       if (signedIn) action();
       else setPrompt({ mode: "login", reason, action });
     },
-    [signedIn]
+    [signedIn, restoring, notify]
   );
 
-  const openAuth = useCallback((mode: AuthMode, reason?: string) => setPrompt({ mode, reason }), []);
+  const openAuth = useCallback((mode: AuthMode, reason?: string) => {
+    if (restoring) { notify("Checking your session..."); return; }
+    setPrompt({ mode, reason });
+  }, [restoring, notify]);
   const close = useCallback(() => setPrompt(null), []);
 
   const handleAuthenticated = (s: Session, mode: AuthMode) => {
@@ -87,10 +97,14 @@ export function AuthGateProvider({
     pending?.();
   };
 
-  const finishOnboarding = (profile?: DiscoveryProfile) => {
+  const finishOnboarding = async (profile?: DiscoveryProfile) => {
     if (!onboarding || onboardingFinished.current) return;
     onboardingFinished.current = true;
-    if (profile) onLogin({ ...onboarding.session, discoveryProfile: profile });
+    try {
+      if (profile) {
+        await onSavePreferences(profile);
+      }
+    } catch (error) { onboardingFinished.current = false; throw error; }
     const pending = onboarding.action;
     setOnboarding(null);
     notify(`Welcome, ${onboarding.session.name.split(" ")[0]}!`);
@@ -102,7 +116,7 @@ export function AuthGateProvider({
   return (
     <AuthGateContext.Provider value={value}>
       {children}
-      {onboarding && <JoinerOnboardingDialog onComplete={finishOnboarding} onSkip={() => finishOnboarding()} />}
+      {onboarding && signedIn && <JoinerOnboardingDialog onComplete={finishOnboarding} onSkip={() => finishOnboarding()} />}
       {prompt && (
         <AuthModal prompt={prompt} onClose={close} onAuthenticated={handleAuthenticated} />
       )}

@@ -10,20 +10,21 @@ export function JoinerOnboarding({ titleId, initialProfile, editing = false, onC
   titleId: string;
   initialProfile?: DiscoveryProfile | null;
   editing?: boolean;
-  onComplete: (profile: DiscoveryProfile) => void;
+  onComplete: (profile: DiscoveryProfile) => void | Promise<void>;
   onSkip: () => void;
 }) {
   const [step, setStep] = useState(1);
   const [occupation, setOccupation] = useState<Occupation | "">(initialProfile?.occupation ?? "");
   const [interests, setInterests] = useState<Category[]>(initialProfile?.interests ?? []);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { heading.current?.focus(); }, [step]);
   const toggleInterest = (category: Category) => {
     setInterests((current) => current.includes(category) ? current.filter((value) => value !== category) : [...current, category]);
     setError("");
   };
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (step === 1) {
       if (!occupation) { setError("Choose an option to continue."); return; }
@@ -31,9 +32,13 @@ export function JoinerOnboarding({ titleId, initialProfile, editing = false, onC
     }
     const profile = normalizeDiscoveryProfile({ occupation, interests }, CATEGORIES);
     if (!profile) { setError("Choose at least one interest."); return; }
-    onComplete(profile);
+    if (busy) return;
+    setBusy(true); setError("");
+    try { await onComplete(profile); }
+    catch (error) { setError(error instanceof Error ? error.message : "Could not save your preferences."); }
+    finally { setBusy(false); }
   };
-  return <form className="joiner-onboarding" onSubmit={submit} noValidate>
+  return <form className="joiner-onboarding" onSubmit={submit} noValidate aria-busy={busy}><fieldset className="integration-fieldset" disabled={busy}>
     <div className="onboarding-progress" aria-label={"Step " + step + " of 2"}>
       <span className="onboarding-eyebrow">{editing ? "Your preferences" : "Make Sali Ka yours"}</span>
       <span>{step} / 2</span>
@@ -63,11 +68,11 @@ export function JoinerOnboarding({ titleId, initialProfile, editing = false, onC
       <button type="submit" className="btn-primary">{step === 1 ? "Continue" : editing ? "Save preferences" : "Start exploring"}<ArrowRight size={18} aria-hidden="true" /></button>
     </div>
     <button type="button" className="onboarding-skip" onClick={onSkip}>{editing ? "Cancel" : "Skip for now"}</button>
-  </form>;
+  </fieldset></form>;
 }
 
 export function JoinerOnboardingDialog({ onComplete, onSkip }: {
-  onComplete: (profile: DiscoveryProfile) => void;
+  onComplete: (profile: DiscoveryProfile) => void | Promise<void>;
   onSkip: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);

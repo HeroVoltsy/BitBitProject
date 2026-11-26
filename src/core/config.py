@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_NAME: str = "BiTBiT API"
     DEBUG: bool = False
+    # JSON array of exact frontend origins; set the deployed URL in production.
+    CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     # Example:
     # postgresql+asyncpg://user:password@localhost:5432/bitbit

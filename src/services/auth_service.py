@@ -41,6 +41,10 @@ async def register_user(
         email=email,
         username=username,
         password_hash=hashed_password,
+        display_name=data.display_name.strip() if data.display_name else None,
+        account_type=data.account_type,
+        business_name=data.business_name.strip() if data.business_name else None,
+        business_contact=data.business_contact.strip() if data.business_contact else None,
     )
 
     try:

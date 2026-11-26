@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -18,7 +17,7 @@ from sqlalchemy.pool import NullPool
 from src.core.config import Settings, get_settings
 from src.db.session import get_db
 from src.main import app
-from src.models.kyc import KYCSubmission
+from src.models.kyc import KYCSubmission, KYCDocument
 from src.models.user import User
 from src.services import kyc_service
 
@@ -250,7 +249,7 @@ async def test_rejected_submission_can_be_resubmitted(api):
     )).status_code == 200
     async with api.sessions() as db:
         saved = (await db.execute(select(KYCSubmission).where(KYCSubmission.user_id == user_id))).scalar_one()
-        old_file = Path(saved.document_front_path)
+        old_document_id = (await db.execute(select(KYCDocument.id).where(KYCDocument.submission_id == saved.id))).scalar_one()
     assert (await api.client.patch(
         f"/api/v1/kyc/admin/{user_id}/review", headers=admin_headers,
         json={"status": "resubmission_required", "review_note": "Replace test photo"},
@@ -260,4 +259,5 @@ async def test_rejected_submission_can_be_resubmitted(api):
     assert response.json()["status"] == "pending"
     assert response.json()["review_note"] is None
     assert response.json()["reviewed_at"] is None
-    assert not old_file.exists()
+    async with api.sessions() as db:
+        assert await db.get(KYCDocument, old_document_id) is None

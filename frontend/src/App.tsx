@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { TopNav } from "./components/TopNav";
 import { ShieldCheck } from "lucide-react";
 import { VerificationScreen } from "./screens/VerificationScreen";
-import { DEMO_KYC_LABELS, getDemoKycStatus } from "./kyc";
+import { KYC_LABELS } from "./kyc";
+import { useVerification } from "./useVerification";
 import { HomeScreen } from "./screens/HomeScreen";
 import { JoinerOnboarding } from "./components/JoinerOnboarding";
 import { normalizeDiscoveryProfile } from "./discovery";
@@ -90,9 +91,10 @@ export default function App() {
 }
 
 function AppShell() {
-  const { session, login, logout, setRole, setDemoKycStatus, setDiscoveryProfile } = useAuth();
+  const { session, login, logout, restoring, sessionError, setRole, setDiscoveryProfile } = useAuth();
   const activeRole: Role = session?.role === "host" ? "host" : "attendee";
-  const demoKycStatus = getDemoKycStatus(session?.demoKyc, activeRole);
+  const verification = useVerification(session?.id);
+  const kycStatus = verification.submission?.status ?? "not_started";
   const notify = useToast();
   const isHost = session?.role === "host";
   const { eventStaff, invites, inviteStaff, removeStaff, respondToInvite, resetStaff } = useStaff();
@@ -187,8 +189,9 @@ function AppShell() {
 
   // Settings → "Sali ka as a host!" / "Sali na!"
   const switchRole = useCallback(
-    (role: Role) => {
-      setRole(role);
+    async (role: Role) => {
+      try { await setRole(role); }
+      catch (error) { notify(error instanceof Error ? error.message : "Could not switch accounts."); return; }
       navigate(role === "host" ? "host-dashboard" : "home");
       notify(role === "host" ? "You're now hosting. Welcome to your dashboard!" : "Sali na! Find events to join.");
     },
@@ -287,7 +290,7 @@ function AppShell() {
   // No auth gate: anyone can browse. Features that need an account open the
   // sign-in pop-up via useAuthGate().requireAuth (see components/AuthGate.tsx).
   return (
-    <AuthGateProvider signedIn={Boolean(session)} onLogin={login}>
+    <AuthGateProvider signedIn={Boolean(session)} restoring={restoring} onLogin={login} onSavePreferences={setDiscoveryProfile}>
     <div className="app">
       <TopNav
         active={view}
@@ -301,16 +304,19 @@ function AppShell() {
         onOpenEvent={openNotificationEvent}
       />
       <main>
+        {restoring && <p className="page" role="status">Checking your session...</p>}
+        {sessionError && <p className="page auth-error" role="alert">{sessionError}</p>}
         {session && (view === "home" || view === "host-dashboard") && (
           <aside className="kyc-banner" aria-label="Identity verification">
             <ShieldCheck size={24} aria-hidden="true" />
-            <div><strong>Identity verification</strong><p>{demoKycStatus === "not_started" ? "Complete the identity steps for your " + (isHost ? "Host" : "Joiner") + " account." : DEMO_KYC_LABELS[demoKycStatus]}</p></div>
-            <button type="button" className="btn-secondary" onClick={() => navigate("verification")}>{demoKycStatus === "not_started" ? "Get started" : "View progress"}</button>
+            <div><strong>Identity verification</strong><p>{verification.loading ? "Loading status..." : verification.error ? "Status unavailable. Open verification to retry." : kycStatus === "not_started" ? "Complete the identity steps for your " + (isHost ? "Host" : "Joiner") + " account." : KYC_LABELS[kycStatus]}</p></div>
+            <button type="button" className="btn-secondary" onClick={() => navigate("verification")}>{kycStatus === "not_started" ? "Get started" : "View progress"}</button>
           </aside>
         )}
         {view === "verification" && session && (
-          <VerificationScreen key={session.email + ":" + activeRole} role={activeRole} status={demoKycStatus}
-            onStatusChange={(status) => setDemoKycStatus(activeRole, status)} onBack={() => navigate("settings")} />
+          <VerificationScreen key={session.id} role={activeRole} submission={verification.submission}
+            loading={verification.loading} loadError={verification.error} onRefresh={verification.refresh}
+            onStatusChange={verification.update} onBack={() => navigate("settings")} />
         )}
         {view === "home" && (
           <HomeScreen
@@ -326,7 +332,7 @@ function AppShell() {
           <div className="page page--narrow"><div className="card onboarding-settings-card">
             <JoinerOnboarding key={session.email} titleId="discovery-settings-title" editing
               initialProfile={normalizeDiscoveryProfile(session.discoveryProfile, CATEGORIES)}
-              onComplete={(profile) => { setDiscoveryProfile(profile); navigate("home"); notify("Your preferences have been updated"); }}
+              onComplete={async (profile) => { await setDiscoveryProfile(profile); navigate("home"); notify("Your preferences have been updated"); }}
               onSkip={() => navigate("settings")} />
           </div></div>
         )}
@@ -419,6 +425,7 @@ function AppShell() {
             dark={dark}
             onToggleDark={() => setDark((v) => !v)}
             onSwitchRole={switchRole}
+            kycLabel={verification.loading ? "Loading..." : verification.error ? "Status unavailable" : KYC_LABELS[kycStatus]}
           />
         )}
         {view === "terms" && <TermsScreen onNavigate={navigate} />}
@@ -446,7 +453,7 @@ function AppShell() {
 
       <footer className="app-footer">
         <span>Sali Ka by BitBit • 2026</span>
-        <span className="muted">Front-end demo · sample data only</span>
+        <span className="muted">Event listings and event interactions currently use sample data</span>
       </footer>
     </div>
     </AuthGateProvider>
