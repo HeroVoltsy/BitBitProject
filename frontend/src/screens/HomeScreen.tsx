@@ -88,7 +88,7 @@ export function HomeScreen({
   discoveryProfile?: unknown;
   events: EventItem[];
 }) {
-  const { requireAuth, signedIn, openAuth } = useAuthGate();
+  const { requireAuth } = useAuthGate();
 
   const toggleLiked = (e: EventItem) =>
     requireAuth(() => {
@@ -169,14 +169,6 @@ export function HomeScreen({
   return (
     <div className="page">
       <WelcomeBanner />
-      {!signedIn && (
-        <div className="card form-card">
-          <p>Log in to browse events.</p>
-          <button className="btn-primary" onClick={() => openAuth("login")}>
-            Log In
-          </button>
-        </div>
-      )}
       <div className="home-toolbar">
         <div className="home-search">
           <Search size={18} strokeWidth={2} className="muted" />
@@ -320,7 +312,7 @@ export function HomeScreen({
             />
           ))}
         </div>
-        {signedIn && feed.length === 0 && (
+        {feed.length === 0 && (
           <p className="empty">No events match your filters.</p>
         )}
         <p className="sr-only" aria-live="polite">
