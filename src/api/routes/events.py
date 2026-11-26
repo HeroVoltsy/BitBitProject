@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,7 +62,10 @@ async def create_event(
 @router.get("", response_model=list[EventResponse])
 async def list_events(
     db: DbSession,
-    current_user: Annotated[User, Depends(get_current_user)],
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Depends(HTTPBearer(auto_error=False)),
+    ],
     category: str | None = None,
     q: str | None = None,
     starts_after: datetime | None = None,
@@ -95,6 +99,13 @@ async def list_events(
         query = query.where(Event.host_id == host_id)
 
     if mine:
+        if credentials is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Log in to view your events",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        current_user = await get_current_user(credentials, db)
         query = query.where(Event.host_id == current_user.id)
 
     query = (
