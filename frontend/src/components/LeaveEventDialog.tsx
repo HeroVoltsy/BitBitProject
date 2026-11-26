@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { EventItem } from "../types";
 
-const REASONS = ["Schedule conflict", "Feeling unwell", "Plans changed", "Other"] as const;
-
 /**
  * Two-step confirmation for leaving ("unjoining") an event.
  * Step 1 explains what happens and offers an optional reason for the host.
@@ -14,8 +12,10 @@ export function LeaveEventDialog({
   event,
   onConfirm,
   onClose,
+  busy = false,
 }: {
   event: EventItem;
+  busy?: boolean;
   onConfirm: (reason?: string) => void;
   onClose: () => void;
 }) {
@@ -23,7 +23,6 @@ export function LeaveEventDialog({
   const safeRef = useRef<HTMLButtonElement>(null);
   const pressedBackdrop = useRef(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const [reason, setReason] = useState<string | null>(null);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -58,7 +57,12 @@ export function LeaveEventDialog({
       }}
     >
       <div className="staff-modal__body">
-        <button type="button" className="auth-modal__close" onClick={onClose} aria-label="Close">
+        <button
+          type="button"
+          className="auth-modal__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
           <X size={20} strokeWidth={2.2} aria-hidden="true" />
         </button>
 
@@ -72,33 +76,25 @@ export function LeaveEventDialog({
             <div id="leave-modal-desc">
               <ul className="leave-modal__list">
                 <li>Your attendance QR code will stop working.</li>
-                <li>The host will be notified that you left.</li>
+                <li>Your registration will be cancelled.</li>
                 <li>Your spot may go to someone else.</li>
               </ul>
             </div>
 
-            <fieldset className="leave-modal__reasons">
-              <legend>Reason (optional, shared with the host)</legend>
-              <div className="fpresets">
-                {REASONS.map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    className="fpreset"
-                    aria-pressed={reason === r}
-                    onClick={() => setReason(reason === r ? null : r)}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
             <div className="leave-modal__actions">
-              <button ref={safeRef} type="button" className="btn-primary" onClick={onClose}>
+              <button
+                ref={safeRef}
+                type="button"
+                className="btn-primary"
+                onClick={onClose}
+              >
                 Keep My Spot
               </button>
-              <button type="button" className="btn-ghost" onClick={() => setStep(2)}>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={() => setStep(2)}
+              >
                 Continue
               </button>
             </div>
@@ -109,17 +105,23 @@ export function LeaveEventDialog({
               Are you sure?
             </h2>
             <p className="staff-modal__sub" id="leave-modal-desc">
-              You&rsquo;re about to leave <strong>{event.title}</strong>. You can join again later
-              if there are still spots open.
+              You&rsquo;re about to leave <strong>{event.title}</strong>. You
+              can join again later if there are still spots open.
             </p>
             <div className="leave-modal__actions">
-              <button ref={safeRef} type="button" className="btn-ghost" onClick={() => setStep(1)}>
+              <button
+                ref={safeRef}
+                type="button"
+                className="btn-ghost"
+                onClick={() => setStep(1)}
+              >
                 Go Back
               </button>
               <button
                 type="button"
                 className="btn-danger"
-                onClick={() => onConfirm(reason ?? undefined)}
+                disabled={busy}
+                onClick={() => onConfirm()}
               >
                 Yes, Leave Event
               </button>

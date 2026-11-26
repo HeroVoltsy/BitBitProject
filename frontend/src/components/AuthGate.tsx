@@ -50,27 +50,48 @@ export const useAuthGate = () => useContext(AuthGateContext);
 
 export function AuthGateProvider({
   signedIn,
+  restoring = false,
   onLogin,
   children,
 }: {
   signedIn: boolean;
+  restoring?: boolean;
   onLogin: (s: Session) => void;
   children: ReactNode;
 }) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
-  const [onboarding, setOnboarding] = useState<{ session: Session; action?: () => void } | null>(null);
+  const [onboarding, setOnboarding] = useState<{
+    session: Session;
+    action?: () => void;
+  } | null>(null);
   const onboardingFinished = useRef(false);
   const notify = useToast();
 
   const requireAuth = useCallback(
     (action: () => void, reason?: string) => {
+      if (restoring) {
+        notify("Checking your session...");
+        return;
+      }
       if (signedIn) action();
       else setPrompt({ mode: "login", reason, action });
     },
-    [signedIn]
+    [signedIn, restoring, notify],
   );
 
-  const openAuth = useCallback((mode: AuthMode, reason?: string) => setPrompt({ mode, reason }), []);
+  const openAuth = useCallback(
+    (mode: AuthMode, reason?: string) => {
+      if (restoring) {
+        notify("Checking your session...");
+        return;
+      }
+      setPrompt({ mode, reason });
+    },
+    [restoring, notify],
+  );
+  useEffect(() => {
+    if (!signedIn && !restoring) setOnboarding(null);
+  }, [signedIn, restoring]);
   const close = useCallback(() => setPrompt(null), []);
 
   const handleAuthenticated = (s: Session, mode: AuthMode) => {
@@ -97,14 +118,26 @@ export function AuthGateProvider({
     pending?.();
   };
 
-  const value = useMemo(() => ({ signedIn, requireAuth, openAuth }), [signedIn, requireAuth, openAuth]);
+  const value = useMemo(
+    () => ({ signedIn, requireAuth, openAuth }),
+    [signedIn, requireAuth, openAuth],
+  );
 
   return (
     <AuthGateContext.Provider value={value}>
       {children}
-      {onboarding && <JoinerOnboardingDialog onComplete={finishOnboarding} onSkip={() => finishOnboarding()} />}
+      {onboarding && signedIn && (
+        <JoinerOnboardingDialog
+          onComplete={finishOnboarding}
+          onSkip={() => finishOnboarding()}
+        />
+      )}
       {prompt && (
-        <AuthModal prompt={prompt} onClose={close} onAuthenticated={handleAuthenticated} />
+        <AuthModal
+          prompt={prompt}
+          onClose={close}
+          onAuthenticated={handleAuthenticated}
+        />
       )}
     </AuthGateContext.Provider>
   );
@@ -160,7 +193,12 @@ function AuthModal({
             onAuthenticated={onAuthenticated}
           />
         </div>
-        <button type="button" className="auth-modal__close" onClick={onClose} aria-label="Close">
+        <button
+          type="button"
+          className="auth-modal__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
           <X size={20} strokeWidth={2.2} aria-hidden="true" />
         </button>
       </div>

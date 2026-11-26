@@ -20,7 +20,6 @@ import { initialsOf } from "../useAuth";
 import { ParrotLogo } from "./ParrotLogo";
 import { useAuthGate } from "./AuthGate";
 
-
 interface NavLink {
   key: ScreenName;
   label: string;
@@ -64,7 +63,7 @@ export function TopNav({
   /** Pending Check-in Staff invitations, shown at the top of the bell menu. */
   staffInvites?: { eventId: string; eventTitle: string; invitedBy: string }[];
   /** Accept or decline a staff invitation straight from the bell menu. */
-  onRespondInvite?: (eventId: string, accept: boolean) => void;
+  onRespondInvite?: (eventId: string, accept: boolean) => Promise<boolean>;
   /** Bell items; `available` is false when the linked event no longer exists. */
   notifications?: (AppNotification & { available: boolean })[];
   /** Opens the event a notification is about. */
@@ -91,8 +90,8 @@ export function TopNav({
     return () => clearTimeout(t);
   }, [staffJustAdded]);
 
-  const respondInvite = (eventId: string, accept: boolean) => {
-    onRespondInvite?.(eventId, accept);
+  const respondInvite = async (eventId: string, accept: boolean) => {
+    if (!(await onRespondInvite?.(eventId, accept))) return;
     if (accept) setStaffJustAdded(true);
     // The row disappears, so close the menu and put focus back on the bell.
     setNotifOpen(false);
@@ -109,9 +108,11 @@ export function TopNav({
   useEffect(() => {
     if (!notifOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false);
+      if (notifRef.current && !notifRef.current.contains(e.target as Node))
+        setNotifOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setNotifOpen(false);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && setNotifOpen(false);
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
@@ -135,12 +136,16 @@ export function TopNav({
   };
 
   const STAFF_LINK: NavLink = { key: "staff", label: "Staff", Icon: UserCog };
-  const links = [...(isHost ? HOST_LINKS : ATTENDEE_LINKS), ...(userName && hasStaffAccess ? [STAFF_LINK] : [])];
+  const links = [
+    ...(isHost ? HOST_LINKS : ATTENDEE_LINKS),
+    ...(userName && hasStaffAccess ? [STAFF_LINK] : []),
+  ];
 
   // Liked Events needs an account (likes belong to a user).
   const openLink = (key: ScreenName) =>
     key === "liked-events"
-      ? (setOpen(false), requireAuth(() => go(key), "Log in to see your liked events."))
+      ? (setOpen(false),
+        requireAuth(() => go(key), "Log in to see your liked events."))
       : go(key);
 
   // Which top-level tab is highlighted (sub-screens map back to a parent).
@@ -159,7 +164,11 @@ export function TopNav({
   return (
     <header className="topnav">
       <div className="topnav__inner">
-        <button className="brand" onClick={() => go(isHost ? "host-dashboard" : "home")} aria-label="Sali Ka home">
+        <button
+          className="brand"
+          onClick={() => go(isHost ? "host-dashboard" : "home")}
+          aria-label="Sali Ka home"
+        >
           <span className="brand__mark">
             <ParrotLogo size={34} />
           </span>
@@ -194,17 +203,26 @@ export function TopNav({
               onClick={toggleNotif}
             >
               <Bell size={20} strokeWidth={2} />
-              {userName && unread > 0 && <span className="iconbtn__dot">{unread}</span>}
+              {userName && unread > 0 && (
+                <span className="iconbtn__dot">{unread}</span>
+              )}
             </button>
             {notifOpen && (
-              <div className="notif__pop card" role="dialog" aria-label="Notifications">
+              <div
+                className="notif__pop card"
+                role="dialog"
+                aria-label="Notifications"
+              >
                 <div className="notif__head">Notifications</div>
                 {staffInvites.map((n) => (
                   <div className="notif__item notif__invite" key={n.eventId}>
                     <span className="notif__title">
-                      {n.invitedBy} invited you to be check-in staff for {n.eventTitle}
+                      {n.invitedBy} invited you to be check-in staff for{" "}
+                      {n.eventTitle}
                     </span>
-                    <span className="notif__meta">Staff can scan guests&rsquo; QR codes at this event.</span>
+                    <span className="notif__meta">
+                      Staff can scan guests&rsquo; QR codes at this event.
+                    </span>
                     <div className="notif__actions">
                       <button
                         type="button"
@@ -240,17 +258,24 @@ export function TopNav({
                         <span className="notif__title">{n.title}</span>
                         <span className="notif__meta">{n.meta}</span>
                       </span>
-                      <ChevronRight size={18} strokeWidth={2.2} className="notif__chev" aria-hidden="true" />
+                      <ChevronRight
+                        size={18}
+                        strokeWidth={2.2}
+                        className="notif__chev"
+                        aria-hidden="true"
+                      />
                       <span className="sr-only">Open event</span>
                     </button>
                   ) : (
                     <div className="notif__item" key={n.id}>
                       <span className="notif__title">{n.title}</span>
                       <span className="notif__meta">
-                        {n.eventId ? "This event is no longer available" : n.meta}
+                        {n.eventId
+                          ? "This event is no longer available"
+                          : n.meta}
                       </span>
                     </div>
-                  )
+                  ),
                 )}
                 {notifications.length === 0 && staffInvites.length === 0 && (
                   <p className="notif__empty">You&rsquo;re all caught up.</p>
@@ -267,7 +292,11 @@ export function TopNav({
           )}
 
           {userName ? (
-            <button className="topnav__avatar" onClick={() => go("profile")} aria-label="Your profile">
+            <button
+              className="topnav__avatar"
+              onClick={() => go("profile")}
+              aria-label="Your profile"
+            >
               {initialsOf(userName)}
             </button>
           ) : (

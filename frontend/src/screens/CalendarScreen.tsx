@@ -1,12 +1,23 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronRight as Arrow } from "lucide-react";
 import { CategoryBadge } from "../components/CategoryBadge";
-import { CALENDAR_EVENTS, type EventStatus } from "../data/events";
+import type { EventItem } from "../types";
+type EventStatus = "Ongoing" | "Upcoming" | "Finished";
 
 const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const STATUS_CLASS: Record<EventStatus, string> = {
@@ -18,16 +29,39 @@ const STATUS_CLASS: Record<EventStatus, string> = {
 // Year range offered by the "Jump to" filter.
 const THIS_YEAR = new Date().getFullYear();
 
-export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) => void }) {
+export function CalendarScreen({
+  events,
+  onOpenEvent,
+}: {
+  events: EventItem[];
+  onOpenEvent: (event: EventItem) => void;
+}) {
+  const now = new Date();
+  const calendar: Record<
+    string,
+    (EventItem & { status: EventStatus; time: string })[]
+  > = {};
+  for (const event of events) {
+    const d = new Date(event.startsAt ?? "");
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    (calendar[key] ??= []).push({
+      ...event,
+      status: event.ended ? "Finished" : d <= now ? "Ongoing" : "Upcoming",
+      time: d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+    });
+  }
   // Default to a month/day that has events so the list isn't empty on first load.
-  const [view, setView] = useState({ year: 2026, month: 7 }); // August 2026
-  const [selected, setSelected] = useState<number | null>(23);
+  const [view, setView] = useState({
+    year: now.getFullYear(),
+    month: now.getMonth(),
+  }); // August 2026
+  const [selected, setSelected] = useState<number | null>(now.getDate());
 
   const firstOffset = new Date(view.year, view.month, 1).getDay();
   const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
 
   const keyFor = (day: number) => `${view.year}-${view.month}-${day}`;
-  const hasEvents = (day: number) => Boolean(CALENDAR_EVENTS[keyFor(day)]);
+  const hasEvents = (day: number) => Boolean(calendar[keyFor(day)]);
 
   const cells: (number | null)[] = [
     ...Array.from({ length: firstOffset }, () => null),
@@ -47,9 +81,12 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) =
   };
   const firstYear = Math.min(view.year, THIS_YEAR - 2);
   const lastYear = Math.max(view.year, THIS_YEAR + 4);
-  const years = Array.from({ length: lastYear - firstYear + 1 }, (_, i) => firstYear + i);
+  const years = Array.from(
+    { length: lastYear - firstYear + 1 },
+    (_, i) => firstYear + i,
+  );
 
-  const dayEvents = selected != null ? CALENDAR_EVENTS[keyFor(selected)] ?? [] : [];
+  const dayEvents = selected != null ? (calendar[keyFor(selected)] ?? []) : [];
   const selectedLabel =
     selected != null
       ? new Date(view.year, view.month, selected).toLocaleDateString("en-US", {
@@ -63,7 +100,9 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) =
   return (
     <div className="page">
       <h1 className="page-title">Schedule</h1>
-      <p className="page-sub">Pick a date to see the events happening that day.</p>
+      <p className="page-sub">
+        Pick a date to see the events happening that day.
+      </p>
 
       <div className="cal-layout">
         <div className="cal-card card">
@@ -103,10 +142,18 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) =
               {MONTHS[view.month]} {view.year}
             </span>
             <span className="cal-month__nav">
-              <button className="cal-nav" aria-label="Previous month" onClick={() => changeMonth(-1)}>
+              <button
+                className="cal-nav"
+                aria-label="Previous month"
+                onClick={() => changeMonth(-1)}
+              >
                 <ChevronLeft size={20} strokeWidth={2.4} />
               </button>
-              <button className="cal-nav" aria-label="Next month" onClick={() => changeMonth(1)}>
+              <button
+                className="cal-nav"
+                aria-label="Next month"
+                onClick={() => changeMonth(1)}
+              >
                 <ChevronRight size={20} strokeWidth={2.4} />
               </button>
             </span>
@@ -133,7 +180,7 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) =
                   {day}
                   {hasEvents(day) && <span className="cal-cell__dot" />}
                 </button>
-              )
+              ),
             )}
           </div>
         </div>
@@ -145,24 +192,38 @@ export function CalendarScreen({ onOpenEvent }: { onOpenEvent: (title: string) =
             </h2>
 
             {selected == null ? (
-              <p className="empty">Tap a day on the calendar to see its events.</p>
+              <p className="empty">
+                Tap a day on the calendar to see its events.
+              </p>
             ) : dayEvents.length === 0 ? (
               <p className="empty">No events on this day.</p>
             ) : (
               <div className="stack">
                 {dayEvents.map((e) => (
-                  <button className="cal-event card" key={e.title} onClick={() => onOpenEvent(e.title)}>
+                  <button
+                    className="cal-event card"
+                    key={e.id}
+                    onClick={() => onOpenEvent(e)}
+                  >
                     <span className="cal-event__main">
                       <span className="cal-event__top">
                         <CategoryBadge category={e.category} />
-                        <span className={`status-tag ${STATUS_CLASS[e.status]}`}>{e.status}</span>
+                        <span
+                          className={`status-tag ${STATUS_CLASS[e.status]}`}
+                        >
+                          {e.status}
+                        </span>
                       </span>
                       <strong className="cal-event__title">{e.title}</strong>
                       <span className="cal-event__meta">
                         {e.time} · {e.location}
                       </span>
                     </span>
-                    <Arrow size={20} strokeWidth={2} className="muted cal-event__chevron" />
+                    <Arrow
+                      size={20}
+                      strokeWidth={2}
+                      className="muted cal-event__chevron"
+                    />
                   </button>
                 ))}
               </div>
