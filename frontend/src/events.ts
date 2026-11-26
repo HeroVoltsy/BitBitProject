@@ -45,7 +45,7 @@ export interface StaffMember {
   user_id: number;
   status: "pending" | "accepted" | "declined";
 }
-export function eventItem(event: ApiEvent, userId: number): EventItem {
+export function eventItem(event: ApiEvent, userId?: number): EventItem {
   const start = new Date(event.starts_at);
   return {
     id: String(event.id),

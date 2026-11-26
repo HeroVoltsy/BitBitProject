@@ -69,14 +69,9 @@ export function useEvents(userId?: number) {
     const abort = new AbortController();
     controller.current = abort;
     const run = ++version.current;
-    if (!userId) {
-      setData(empty());
-      setError("");
-      setLoading(false);
-      return;
-    }
-    const actor = getActiveToken();
-    if (!actor) return;
+    // Guests load only published event data and send no authentication token.
+    const actor = userId ? getActiveToken() : null;
+    if (userId && !actor) return;
     setLoading(true);
     setError("");
     try {
@@ -96,12 +91,13 @@ export function useEvents(userId?: number) {
             .map((e) => [e.id, eventItem(e, userId)]),
         ).values(),
       );
-      const accepted = loadIds(staffKey);
+      const accepted = userId ? loadIds(staffKey) : [];
       const found = new Set<string>();
       const notices: string[] = [];
       let next = 0;
+      const workerCount = userId ? Math.min(4, events.length) : 0;
       await Promise.all(
-        Array.from({ length: Math.min(4, events.length) }, async () => {
+        Array.from({ length: workerCount }, async () => {
           while (next < events.length) {
             const event = events[next++];
             if (abort.signal.aborted) return;
@@ -140,10 +136,10 @@ export function useEvents(userId?: number) {
       if (
         abort.signal.aborted ||
         run !== version.current ||
-        actor !== getActiveToken()
+        (Boolean(userId) && actor !== getActiveToken())
       )
         return;
-      saveIds(staffKey, [...found]);
+      if (userId) saveIds(staffKey, [...found]);
       setData({
         owner: userId,
         events,
