@@ -35,7 +35,7 @@ app.add_middleware(
 @app.middleware("http")
 async def private_api_cache_headers(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(("/auth/", "/users/", "/api/v1/kyc")):
+    if request.url.path.startswith(("/auth/", "/users/", "/api/v1/kyc", "/api/v1/events")):
         response.headers["Cache-Control"] = "no-store"
     return response
 

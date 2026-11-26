@@ -7,7 +7,14 @@ export type Category =
   | "Concert"
   | "Pop-Up";
 
-export type Occupation = "student" | "teacher" | "professional" | "business_owner" | "self_employed" | "other" | "prefer_not_to_say";
+export type Occupation =
+  | "student"
+  | "teacher"
+  | "professional"
+  | "business_owner"
+  | "self_employed"
+  | "other"
+  | "prefer_not_to_say";
 
 export type ScreenName =
   | "home"
@@ -44,6 +51,15 @@ export interface EventItem {
   dateLine: string; // e.g. "Sun, Aug 23 · 10:00 AM"
   location: string;
   going: number;
+  startsAt?: string;
+  endsAt?: string;
+  hostId?: number;
+  description?: string;
+  coverImageUrl?: string;
+  staffCount?: number;
+  liked?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
   hosting?: boolean;
   attending?: boolean;
   /** The event already happened (past events can be rated, not joined). */

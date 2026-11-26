@@ -1,0 +1,106 @@
+const { chromium,request } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const os = require('node:os');
+const api = 'http://127.0.0.1:8001';
+const site = 'http://127.0.0.1:5175';
+(async()=>{
+ const browser = await chromium.launch({executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',headless:true});
+ const req = await request.newContext({baseURL:api});
+ const tag = 'event_browser_'+Date.now(); const errors=[]; const pages=[];
+ async function account(kind){
+  const email=tag+'_'+kind+'@example.com';
+  const registered = await req.post('/auth/register',{data:{email,username:tag+'_'+kind,password:'LocalBrowserOnly_12345',account_type:kind==='host'?'host':'attendee',business_name:kind==='host'?'Browser Test Club':undefined,display_name:kind+' Browser'}});
+  assert.equal(registered.status(),201);
+  const login = await req.post('/auth/login',{data:{email,password:'LocalBrowserOnly_12345'}});
+  const token=(await login.json()).access_token;
+  const context = await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addInitScript(t=>sessionStorage.setItem('salika.access-token.v1',t),token);
+  const page=await context.newPage(); pages.push(page);page.setDefaultTimeout(14000);page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(site);await page.getByRole('button',{name:'Your profile',exact:true}).waitFor();
+  return {page,email,token,headers:{Authorization:'Bearer '+token}};
+ }
+ let host,joiner,staff;
+ try {
+  host=await account('host'); joiner=await account('joiner'); staff=await account('staff');
+  const hp=host.page,jp=joiner.page,sp=staff.page;
+  await hp.getByRole('button',{name:'Post an Event',exact:true}).first().click();
+  const title='Browser Integration '+Date.now();
+  await hp.getByRole('textbox',{name:'Event Title',exact:true}).fill(title);
+  await hp.locator('.datepicker__trigger').click();
+  await hp.getByRole('button',{name:'Next month',exact:true}).click();
+  const next=new Date();next.setMonth(next.getMonth()+1,15);
+  await hp.getByRole('button',{name:next.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),exact:true}).click();
+  await hp.locator('.timepicker__trigger').click();
+  await hp.getByRole('listbox',{name:'Hour',exact:true}).getByRole('button',{name:'10',exact:true}).click();
+  await hp.getByRole('listbox',{name:'AM or PM',exact:true}).getByRole('button',{name:'AM',exact:true}).click();
+  await hp.getByRole('textbox',{name:'Location',exact:true}).fill('Browser Test Hall');
+  await hp.getByRole('textbox',{name:'Description',exact:true}).fill('Created through the real browser form.');
+  await hp.getByRole('button',{name:'Music',exact:true}).click();
+  await hp.getByRole('button',{name:'Student',exact:true}).click();
+  await hp.getByRole('button',{name:'Post Event',exact:true}).click();
+  await hp.getByRole('heading',{name:'Host Dashboard',exact:true}).waitFor();
+  await hp.getByRole('heading',{name:title,exact:true}).waitFor();
+  const published=await req.get('/api/v1/events',{headers:host.headers});
+  const event=(await published.json()).find(e=>e.title===title);assert.ok(event);assert.deepEqual(event.audiences,['student']);assert.equal(event.host_name,'Browser Test Club');
+  console.log('PASS: host publishes an actual event with its date, description and audience.');
+  await hp.getByRole('button',{name:'Manage Staff',exact:true}).click();
+  await hp.getByRole('textbox',{name:'Invite by email',exact:true}).fill(staff.email);
+  await hp.getByRole('button',{name:'Send Invite',exact:true}).click();
+  await hp.getByText(staff.email,{exact:true}).waitFor();
+  await hp.getByRole('button',{name:'Close',exact:true}).click();
+  await sp.reload();await sp.getByRole('button',{name:'Staff',exact:true}).first().click();
+  await sp.getByRole('button',{name:'Accept',exact:true}).click();
+  await sp.getByRole('button',{name:'Open Scanner',exact:true}).waitFor();
+  console.log('PASS: host invites an existing account; staff accepts and receives scanner access.');
+  await jp.reload();await jp.locator('.eventcard-wrap').filter({hasText:title}).getByRole('button',{name:'Join '+title,exact:true}).click();
+  await jp.locator('.eventcard-wrap').filter({hasText:title}).getByRole('button',{name:"You're going to "+title+'. Open event',exact:true}).waitFor();
+  await jp.reload();await jp.locator('.eventcard-wrap').filter({hasText:title}).getByRole('button',{name:"You're going to "+title+'. Open event',exact:true}).waitFor();
+  assert.equal((await (await req.get('/api/v1/events/mine/registrations',{headers:joiner.headers})).json()).length,1);
+  await jp.locator('.eventcard-wrap').filter({hasText:title}).getByRole('button',{name:"You're going to "+title+'. Open event',exact:true}).click();
+  await jp.getByRole('button',{name:'Show My QR for Attendance',exact:true}).click();
+  await jp.getByRole('button',{name:'Generate my QR',exact:true}).click();
+  await jp.getByRole('img',{name:'Your private attendance QR code',exact:true}).waitFor();
+  const payload=await jp.locator('.ticket-payload').textContent(); assert.ok(payload.startsWith('BITBIT:TICKET:'+event.id+':'));
+  const image=await jp.getByRole('img',{name:'Your private attendance QR code',exact:true}).getAttribute('src'); assert.ok(image.startsWith('data:image/png;base64,'));
+  // Decode the actual generated image, rather than trusting the text beside it.
+  const decoded=await jp.evaluate(async src=>{
+    const {BrowserQRCodeReader}=await import('/node_modules/.vite/deps/@zxing_browser.js');
+    return (await new BrowserQRCodeReader().decodeFromImageUrl(src)).getText();
+  },image);
+  assert.equal(decoded,payload);
+  console.log('PASS: registration survives reload and the generated QR decodes to the real private ticket.');
+  await sp.getByRole('button',{name:'Open Scanner',exact:true}).click();
+  await sp.getByRole('textbox',{name:'Attendance code',exact:true}).fill(payload);
+  await sp.getByRole('button',{name:'Check in attendee',exact:true}).click();
+  await sp.getByRole('status').filter({hasText:'Check-in successful'}).waitFor();
+  await sp.getByRole('textbox',{name:'Attendance code',exact:true}).fill(payload);
+  await sp.getByRole('button',{name:'Check in attendee',exact:true}).click();
+  await sp.getByRole('alert').filter({hasText:'already been checked in'}).waitFor();
+  await sp.reload();await sp.getByRole('button',{name:'Staff',exact:true}).first().click();await sp.getByRole('button',{name:'Open Scanner',exact:true}).click();
+  const totals=await (await req.get('/api/v1/events/'+event.id+'/check-ins/summary',{headers:staff.headers})).json();assert.deepEqual(totals,{registered:1,checked_in:1});
+  await hp.getByRole('button',{name:'Attendance List',exact:true}).click();
+  await hp.getByText(tag+'_joiner',{exact:true}).waitFor();await hp.getByText('IN',{exact:true}).waitFor();
+  await hp.evaluate(()=>window.scrollTo(0,0)); await hp.waitForTimeout(350);
+  await hp.screenshot({path:path.join(os.tmpdir(),'bitbit-live-attendance.png'),fullPage:true});
+  console.log('PASS: staff check-in persists, reused QR is rejected, and host attendance shows the actual attendee.');
+  await jp.getByRole('button',{name:'Close',exact:true}).click();
+  await jp.getByRole('button',{name:'Leave event',exact:true}).click();await jp.getByRole('button',{name:'Continue',exact:true}).click();await jp.getByRole('button',{name:'Yes, Leave Event',exact:true}).click();
+  await jp.getByRole('button',{name:'Join This Event',exact:true}).waitFor();
+  assert.equal((await (await req.get('/api/v1/events/mine/registrations',{headers:joiner.headers})).json()).length,0);
+  console.log('PASS: leaving removes the saved registration and invalidates the attendance ticket.');
+  // Mobile rendering and denied requests must not claim a successful registration.
+  await jp.setViewportSize({width:390,height:844});
+  await jp.route(api+'/api/v1/events/'+event.id+'/registrations',r=>r.fulfill({status:409,contentType:'application/json',body:JSON.stringify({detail:'Registration is closed for testing'})}));
+  await jp.getByRole('button',{name:'Join This Event',exact:true}).click();
+  await jp.getByText('Registration is closed for testing',{exact:true}).waitFor();
+  assert.equal(await jp.getByRole('button',{name:'Show My QR for Attendance',exact:true}).count(),0);
+  await jp.evaluate(()=>window.scrollTo(0,0)); await jp.waitForTimeout(350);
+  await jp.screenshot({path:path.join(os.tmpdir(),'bitbit-mobile-event.png'),fullPage:true});
+  assert.deepEqual(errors,[]);
+  console.log('PASS: failed requests stay unjoined; mobile event view has no script errors.');
+  console.log('EVENT BROWSER TESTS PASSED');
+ } catch(e) {
+  console.error(e.message);for(let i=0;i<pages.length;i++){await pages[i].screenshot({path:path.join(os.tmpdir(),'bitbit-events-failure-'+i+'.png'),fullPage:true}).catch(()=>{});console.error('PAGE '+i,(await pages[i].locator('body').innerText()).slice(-2400));}process.exitCode=1;
+ }finally{await req.dispose();await browser.close();}
+})();
