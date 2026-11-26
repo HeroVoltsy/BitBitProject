@@ -4828,3 +4828,7 @@ button.setting-row:hover {
 
 /* Let the rounded app tile fill its holder, without a second background frame. */
 .brand__mark > .parrot-logo { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* Preserve form layout while disabling all fields during API requests. */
+.integration-fieldset { display: contents; border: 0; padding: 0; margin: 0; min-width: 0; }
+button:disabled { cursor: wait; opacity: .65; }

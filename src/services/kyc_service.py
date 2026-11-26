@@ -32,3 +32,14 @@ def decrypt_id_number(value: str) -> str:
         ).decode("utf-8")
     except (InvalidToken, ValueError):
         raise KYCEncryptionNotConfigured from None
+
+
+def encrypt_document(content: bytes) -> bytes:
+    return _fernet().encrypt(content)
+
+
+def decrypt_document(content: bytes) -> bytes:
+    try:
+        return _fernet().decrypt(content)
+    except InvalidToken:
+        raise KYCEncryptionNotConfigured from None

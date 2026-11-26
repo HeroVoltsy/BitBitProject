@@ -1,6 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
-import type { Role, Session } from "../useAuth";
+import { sessionFromUser, type Role, type Session } from "../useAuth";
+import { api, type ApiUser } from "../api";
+import { useEffect } from "react";
 
 /**
  * Log In / Sign Up form. Shown inside the sign-in pop-up (components/AuthGate.tsx)
@@ -11,6 +13,7 @@ export type AuthMode = "login" | "signup";
 
 interface Errors {
   name?: string;
+  username?: string;
   email?: string;
   password?: string;
   confirm?: string;
@@ -34,6 +37,11 @@ export function AuthForm({
 }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [serverError, setServerError] = useState("");
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -45,6 +53,8 @@ export function AuthForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const switchMode = (m: AuthMode) => {
+    if (busy) return;
+    setServerError("");
     setMode(m);
     setErrors({});
   };
@@ -56,12 +66,15 @@ export function AuthForm({
       e.businessName = "Enter your business name.";
     }
     if (!EMAIL_RE.test(email.trim())) e.email = "Enter a valid email address.";
-    if (password.length < 8) e.password = "Use at least 8 characters.";
+    if (mode === "signup" && !/^[a-zA-Z0-9_]{3,50}$/.test(username.trim())) e.username = "Use 3-50 letters, numbers, or underscores.";
+    if (mode === "signup" ? password.length < 12 || password.length > 128 : !password || password.length > 128)
+      e.password = mode === "signup" ? "Use 12-128 characters." : "Enter your password.";
     if (mode === "signup" && confirm !== password) e.confirm = "Passwords do not match.";
     return e;
   };
 
-  const handleSubmit = (ev: FormEvent) => {
+  const handleSubmit = async (ev: FormEvent) => {
+    if (busy) { ev.preventDefault(); return; }
     ev.preventDefault();
     const e = validate();
     setErrors(e);
@@ -73,20 +86,37 @@ export function AuthForm({
       return;
     }
 
-    // Demo only: no password is stored or sent anywhere.
-    const displayName =
-      mode === "signup"
-        ? name.trim()
-        : email.trim().split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const isHost = mode === "signup" && role === "host";
-    onAuthenticated({
-      name: displayName,
-      email: email.trim(),
-      role: isHost ? "host" : "attendee",
-      businessName: isHost ? businessName.trim() : undefined,
-      businessContact: isHost ? businessContact.trim() : undefined,
-    }, mode);
+    setBusy(true); setServerError("");
+    const controller = new AbortController(); request.current = controller;
+    let registered = false;
+    try {
+      if (mode === "signup") {
+        await api<ApiUser>("/auth/register", { method: "POST", token: null, signal: controller.signal,
+          body: JSON.stringify({ email: email.trim(), username: username.trim(), password,
+            display_name: name.trim(), account_type: role,
+            business_name: role === "host" ? businessName.trim() : null,
+            business_contact: role === "host" ? businessContact.trim() : null,
+          }),
+        });
+        registered = true;
+      }
+      const result = await api<{ access_token: string }>("/auth/login", {
+        method: "POST", token: null, signal: controller.signal,
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const user = await api<ApiUser>("/users/me", { token: result.access_token, signal: controller.signal });
+      if (!controller.signal.aborted) {
+        setPassword(""); setConfirm("");
+        onAuthenticated(sessionFromUser(user, result.access_token), mode);
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message = error instanceof Error ? error.message : "Could not sign in. Please try again.";
+      setServerError(registered ? "Your account was created. Please log in to continue. " + message : message);
+      if (registered) { setMode("login"); setPassword(""); setConfirm(""); }
+    } finally {
+      if (!controller.signal.aborted) setBusy(false);
+    }
   };
 
   const sub = reason ?? (mode === "signup" ? "Join your community in a few seconds." : undefined);
@@ -146,7 +176,9 @@ export function AuthForm({
         </button>
       </div>
 
-      <form className="auth-form" ref={formRef} onSubmit={handleSubmit} noValidate>
+      <form className="auth-form" ref={formRef} onSubmit={handleSubmit} noValidate aria-busy={busy}>
+        {serverError && <p className="auth-error" role="alert">{serverError}</p>}
+        <fieldset className="integration-fieldset" disabled={busy}>
         {mode === "signup" && (
           <label className="field">
             <span className="field__label">Full name</span>
@@ -165,6 +197,14 @@ export function AuthForm({
             {errors.name && <span className="auth-error" id="auth-err-name">{errors.name}</span>}
           </label>
         )}
+
+        {mode === "signup" && <label className="field">
+          <span className="field__label">Username</span>
+          <input className="input" name="username" autoComplete="username" value={username}
+            maxLength={50} onChange={(event) => setUsername(event.target.value)}
+            aria-invalid={Boolean(errors.username)} aria-describedby={errors.username ? "auth-err-username" : undefined} />
+          {errors.username && <span className="auth-error" id="auth-err-username">{errors.username}</span>}
+        </label>}
 
         {mode === "signup" && role === "host" && (
           <div className="business-fields">
@@ -226,7 +266,7 @@ export function AuthForm({
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
+              placeholder={mode === "signup" ? "At least 12 characters" : "Your password"}
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
               aria-invalid={Boolean(errors.password)}
                 aria-describedby={errors.password ? "auth-err-password" : undefined}
@@ -264,9 +304,10 @@ export function AuthForm({
         )}
 
         <button type="submit" className="btn-primary auth-submit">
-          {mode === "login" ? "Log In" : "Create Account"}
+          {busy ? "Please wait..." : mode === "login" ? "Log In" : "Create Account"}
           <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
         </button>
+        </fieldset>
       </form>
     </div>
   );

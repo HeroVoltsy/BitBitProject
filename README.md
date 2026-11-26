@@ -76,8 +76,9 @@ Sali Ka is **still being built**. 🚧
 You can try a **working preview** at
 **[mock-sali-ka.vercel.app](https://mock-sali-ka.vercel.app/)**. You can click
 through every page and try every feature, but the events and people you see are
-**sample data**, and nothing you do is saved permanently yet. Real accounts and
-saved data are coming as we finish connecting the website to our server.
+**sample data**. In this repository, signup/login, account preferences, and KYC
+are connected to FastAPI and PostgreSQL when configured; other event features
+still use sample data. See `frontend/README.md` for integration and deployment setup.
 
 > **Note:** The preview is published from a separate repository,
 > [gbzor/mock-sali-ka](https://github.com/gbzor/mock-sali-ka), which holds a copy

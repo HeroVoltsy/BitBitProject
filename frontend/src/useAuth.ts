@@ -1,111 +1,75 @@
-import { useCallback, useState } from "react";
-import type { DemoKycRecord, DemoKycStatus } from "./kyc";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { normalizeDiscoveryProfile, type DiscoveryProfile } from "./discovery";
 import { CATEGORIES } from "./data/events";
+import { api, AUTH_EXPIRED, readToken, storeToken, updateProfile, type ApiUser } from "./api";
+import { tokenExpiry } from "./apiClient";
+import { useToast } from "./components/Toast";
 
-/**
- * Lightweight, front-end-only session for the demo.
- *
- * SECURITY: This is a UX gate, not a real authentication system. There is no
- * backend, so:
- *   - No password is ever stored, transmitted, or kept in memory after submit.
- *   - Only a non-sensitive marker (display name + email) is kept in
- *     sessionStorage, which is per-tab and cleared when the tab closes.
- *   - This gate does NOT protect any data — all content in this app is public
- *     sample data. For production, replace this with server-side auth
- *     (hashed passwords, HTTPS, httpOnly session cookies, rate limiting).
- */
-
-const SESSION_KEY = "salika.session";
-
-/** Which UI the user sees: attendees browse/join events, hosts get the dashboard. */
 export type Role = "attendee" | "host";
-
 export interface Session {
-  name: string;
-  email: string;
-  /** Defaults to "attendee" when missing (e.g. sessions saved before roles existed). */
-  role?: Role;
-  businessName?: string;
-  businessContact?: string;
-  /** Per-role prototype status only; never identity data or a real verified flag. */
-  demoKyc?: DemoKycRecord;
-  discoveryProfile?: DiscoveryProfile;
+  id: number; name: string; email: string; role: Role; token: string;
+  businessName?: string; businessContact?: string; discoveryProfile?: DiscoveryProfile;
 }
-
-function loadSession(): Session | null {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
-  } catch {
-    return null;
+export function sessionFromUser(user: ApiUser, token: string): Session {
+  if (!Number.isInteger(user.id) || !user.email || !user.username || !["attendee", "host"].includes(user.account_type)) {
+    throw new Error("Account information could not be loaded. Please try again later.");
   }
+  return {
+    id: user.id, name: user.display_name || user.username, email: user.email,
+    role: user.account_type, token, businessName: user.business_name ?? undefined,
+    businessContact: user.business_contact ?? undefined,
+    discoveryProfile: normalizeDiscoveryProfile(user.discovery_profile, CATEGORIES) ?? undefined,
+  };
 }
-
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (!parts.length) return "?";
+  return parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function useAuth() {
-  const [session, setSession] = useState<Session | null>(() => loadSession());
-
-  const persist = useCallback((s: Session | null) => {
-    try {
-      if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
-      else sessionStorage.removeItem(SESSION_KEY);
-    } catch {
-      /* storage unavailable (private mode, blocked) — session stays in memory */
-    }
+  const [session, setSession] = useState<Session | null>(null);
+  const current = useRef<Session | null>(null);
+  const [restoring, setRestoring] = useState(true);
+  const [sessionError, setSessionError] = useState("");
+  const notify = useToast();
+  const login = useCallback((next: Session) => {
+    current.current = next; storeToken(next.token); setSession(next); setSessionError("");
+  }, []);
+  const logout = useCallback(() => {
+    current.current = null; storeToken(null); setSession(null);
   }, []);
 
-  const login = useCallback(
-    (s: Session) => {
-      setSession(s);
-      persist(s);
-    },
-    [persist]
-  );
+  useEffect(() => {
+    const controller = new AbortController();
+    const token = readToken();
+    if (!token) { storeToken(null); setRestoring(false); return; }
+    storeToken(token);
+    api<ApiUser>("/users/me", { token, signal: controller.signal })
+      .then((user) => { if (!controller.signal.aborted) login(sessionFromUser(user, token)); })
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        logout(); setSessionError(error.message || "Could not restore your session. Please log in again.");
+      })
+      .finally(() => { if (!controller.signal.aborted) setRestoring(false); });
+    return () => controller.abort();
+  }, [login, logout]);
+  useEffect(() => {
+    const expire = () => { logout(); notify("Your session has expired. Please log in again."); };
+    window.addEventListener(AUTH_EXPIRED, expire);
+    const timer = session ? window.setTimeout(expire, Math.max(0, tokenExpiry(session.token) - Date.now())) : undefined;
+    return () => { window.removeEventListener(AUTH_EXPIRED, expire); window.clearTimeout(timer); };
+  }, [session, logout, notify]);
 
-  const logout = useCallback(() => {
-    setSession(null);
-    persist(null);
-  }, [persist]);
-
-  /** Switch between the attendee and host UI (Settings → "Sali ka as a host!" / "Sali na!"). */
-  const setRole = useCallback(
-    (role: Role) => {
-      setSession((s) => {
-        if (!s) return s;
-        const next = { ...s, role };
-        persist(next);
-        return next;
-      });
-    },
-    [persist]
-  );
-
-  const setDemoKycStatus = useCallback((role: Role, status: DemoKycStatus) => {
-    setSession((current) => {
-      if (!current) return current;
-      const next = { ...current, demoKyc: { ...current.demoKyc, [role]: status } };
-      persist(next);
-      return next;
-    });
-  }, [persist]);
-
-  const setDiscoveryProfile = useCallback((profile: DiscoveryProfile) => {
-    const normalized = normalizeDiscoveryProfile(profile, CATEGORIES);
-    if (!normalized) return;
-    setSession((current) => {
-      if (!current) return current;
-      const next = { ...current, discoveryProfile: normalized };
-      persist(next);
-      return next;
-    });
-  }, [persist]);
-
-  return { session, login, logout, setRole, setDemoKycStatus, setDiscoveryProfile };
+  const save = useCallback(async (data: Parameters<typeof updateProfile>[0]) => {
+    const before = current.current;
+    if (!before) throw new Error("Please log in again.");
+    const user = await updateProfile(data);
+    if (current.current?.token !== before.token) throw new Error("Your session changed. Please try again.");
+    const next = sessionFromUser(user, before.token);
+    login(next); return next;
+  }, [login]);
+  const setRole = useCallback((role: Role) => save({ account_type: role }), [save]);
+  const setDiscoveryProfile = useCallback((profile: DiscoveryProfile) => save({ discovery_profile: profile }), [save]);
+  return { session, login, logout, restoring, sessionError, setRole, setDiscoveryProfile };
 }

@@ -3,7 +3,6 @@ import { ArrowLeft, ChevronRight, LogOut, CalendarPlus, Ticket } from "lucide-re
 import { initialsOf, type Role, type Session } from "../useAuth";
 import { useToast } from "../components/Toast";
 import type { ScreenName } from "../types";
-import { DEMO_KYC_LABELS, getDemoKycStatus } from "../kyc";
 
 type ToggleKey = "push" | "email";
 
@@ -14,6 +13,7 @@ export function SettingsScreen({
   dark,
   onToggleDark,
   onSwitchRole,
+  kycLabel,
 }: {
   onNavigate: (s: ScreenName) => void;
   onLogout: () => void;
@@ -21,6 +21,7 @@ export function SettingsScreen({
   dark: boolean;
   onToggleDark: () => void;
   onSwitchRole: (role: Role) => void;
+  kycLabel: string;
 }) {
   const isHost = session.role === "host";
   const displayEmail = session.email;
@@ -77,7 +78,7 @@ export function SettingsScreen({
         {!isHost && <Row label="Interests & recommendations" chevron onClick={() => onNavigate("discovery")} />}
         <Row
           label="Identity verification"
-          hint={DEMO_KYC_LABELS[getDemoKycStatus(session.demoKyc, isHost ? "host" : "attendee")]}
+          hint={kycLabel}
           chevron
           onClick={() => onNavigate("verification")}
         />

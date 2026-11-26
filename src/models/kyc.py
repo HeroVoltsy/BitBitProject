@@ -1,7 +1,8 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, String, Text, LargeBinary, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.db.base import Base
@@ -23,9 +24,17 @@ class KYCSubmission(Base):
     id_type: Mapped[str] = mapped_column(String(80), nullable=False)
     id_number_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
 
+    personal_details: Mapped[dict | None] = mapped_column(JSONB)
+
     document_front_path: Mapped[str | None] = mapped_column(String(500))
     document_back_path: Mapped[str | None] = mapped_column(String(500))
     selfie_path: Mapped[str | None] = mapped_column(String(500))
+
+    @property
+    def documents(self) -> list[str]:
+        return [kind for kind, path in (
+            ("front", self.document_front_path), ("back", self.document_back_path), ("selfie", self.selfie_path),
+        ) if path]
 
     status: Mapped[str] = mapped_column(
         String(30),
@@ -49,3 +58,13 @@ class KYCSubmission(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class KYCDocument(Base):
+    __tablename__ = "kyc_documents"
+    __table_args__ = (UniqueConstraint("submission_id", "kind", name="uq_kyc_document_kind"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    submission_id: Mapped[int] = mapped_column(ForeignKey("kyc_submissions.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(10))
+    content_type: Mapped[str] = mapped_column(String(40))
+    encrypted_content: Mapped[bytes] = mapped_column(LargeBinary)
