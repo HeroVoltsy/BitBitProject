@@ -1,39 +1,32 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Check, ClipboardCheck, ImagePlus } from "lucide-react";
 import type { Role } from "../useAuth";
-import { api, getMyKyc, type KycSubmission } from "../api";
 import {
-  KYC_LABELS, validateIdNumber, DOCUMENT_TYPES, requiresBackImage, resolveCurrentAddress, validateAddress, validateDocuments,
-  validateIdentity, validateImage, type KycDetails, type DetailErrors, type DocumentErrors, type KycAddress, type AddressErrors,
+  DEMO_KYC_LABELS, DOCUMENT_TYPES, requiresBackImage, resolveCurrentAddress, validateAddress, validateDocuments,
+  validateIdentity, validateImage, type DemoKycDetails, type DemoKycStatus, type DetailErrors, type DocumentErrors, type KycAddress, type AddressErrors,
 } from "../kyc";
 
-const EMPTY_DETAILS: KycDetails = {
+const EMPTY_DETAILS: DemoKycDetails = {
   firstName: "", lastName: "", middleName: "", dateOfBirth: "", contactNumber: "", addressLine1: "", addressLine2: "",
-  barangay: "", city: "", province: "", postalCode: "", country: "Philippines", documentType: "", idNumber: "", organization: "", authorized: false,
+  barangay: "", city: "", province: "", postalCode: "", country: "Philippines", documentType: "", organization: "", authorized: false,
 };
 type Images = { front: File | null; back: File | null; selfie: File | null };
 const EMPTY_IMAGES: Images = { front: null, back: null, selfie: null };
 type ImageKey = keyof Images;
 type FormErrors = DetailErrors & DocumentErrors & { consent?: string; currentAddress?: AddressErrors };
 const EMPTY_ADDRESS: KycAddress = { addressLine1: "", addressLine2: "", barangay: "", city: "", province: "", postalCode: "", country: "Philippines" };
-type TextFieldKey = Exclude<keyof KycDetails, "authorized" | "documentType">;
+type TextFieldKey = Exclude<keyof DemoKycDetails, "authorized" | "documentType">;
 
-/** Identity details remain in memory until explicitly submitted to the API. */
-export function VerificationScreen({ role, submission, loading, loadError, onRefresh, onStatusChange, onBack }: {
-  role: Role; submission: KycSubmission | null; loading: boolean; loadError: string;
-  onRefresh: () => void; onStatusChange: (submission: KycSubmission) => void; onBack: () => void;
+/** Frontend prototype: entered identity details and image files never leave this form. */
+export function VerificationScreen({ role, status, onStatusChange, onBack }: {
+  role: Role;
+  status: DemoKycStatus;
+  onStatusChange: (status: DemoKycStatus) => void;
+  onBack: () => void;
 }) {
-  const status = submission?.status ?? "not_started";
-  const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [serverError, setServerError] = useState("");
-  const [progress, setProgress] = useState("");
-  const controller = useRef<AbortController | null>(null);
-  const inFlight = useRef(false);
-  useEffect(() => () => controller.current?.abort(), []);
   const roleName = role === "host" ? "Host" : "Joiner";
   const [step, setStep] = useState(1);
-  const [details, setDetails] = useState<KycDetails>(EMPTY_DETAILS);
+  const [details, setDetails] = useState<DemoKycDetails>(EMPTY_DETAILS);
   const [currentAddress, setCurrentAddress] = useState<KycAddress>(EMPTY_ADDRESS);
   const [sameAsPermanent, setSameAsPermanent] = useState(false);
   const resolvedCurrentAddress = resolveCurrentAddress(details, currentAddress, sameAsPermanent);
@@ -51,19 +44,6 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
     : key === "back" ? "Show the entire back side, including all four corners."
       : isPassport ? "Show your photo and personal details on the same page." : "Show your photo, name, and all four corners of the card.";
 
-  useEffect(() => {
-    if (inFlight.current || !submission || !["draft", "rejected", "resubmission_required"].includes(submission.status)) return;
-    const personal = submission.personal_details;
-    if (personal) {
-      setDetails({ ...EMPTY_DETAILS, ...personal.permanentAddress,
-        firstName: personal.firstName, lastName: personal.lastName, middleName: personal.middleName,
-        contactNumber: personal.contactNumber, dateOfBirth: submission.date_of_birth,
-        documentType: submission.id_type, organization: personal.organization, authorized: personal.authorized,
-      });
-      setCurrentAddress(personal.currentAddress);
-    }
-    // The encrypted ID number is never returned by the API; re-enter it when resubmitting.
-  }, [submission?.id]);
   useEffect(() => { headingRef.current?.focus(); }, [step, status]);
   const focusError = () => requestAnimationFrame(() =>
     formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
@@ -75,18 +55,14 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
     setErrors((current) => ({ ...current, [field]: undefined }));
     setConsent(false);
   };
-  const checkDocuments = () => ({
-    ...validateDocuments(details.documentType, {
-      front: Boolean(images.front), back: Boolean(images.back), selfie: Boolean(images.selfie),
-    }),
-    ...(validateIdNumber(details.idNumber) ? { idNumber: validateIdNumber(details.idNumber) } : {}),
+  const checkDocuments = () => validateDocuments(details.documentType, {
+    front: Boolean(images.front), back: Boolean(images.back), selfie: Boolean(images.selfie),
   });
   const goWithErrors = (nextStep: number, nextErrors: FormErrors) => {
     setErrors(nextErrors); setStep(nextStep); focusError();
   };
-  const submit = async (event: FormEvent) => {
+  const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (inFlight.current) return;
     const currentErrors = sameAsPermanent ? {} : validateAddress(currentAddress);
     const personalErrors: FormErrors = { ...validateIdentity(details, role), ...validateAddress(details),
       ...(Object.keys(currentErrors).length ? { currentAddress: currentErrors } : {}) };
@@ -102,49 +78,9 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
     if (Object.keys(personalErrors).length) { goWithErrors(1, personalErrors); return; }
     if (Object.keys(documentErrors).length) { goWithErrors(2, documentErrors); return; }
     if (!consent) { setErrors({ consent: "Confirm that you have reviewed your information." }); focusError(); return; }
-    setBusy(true); inFlight.current = true; setServerError("");
-    const request = new AbortController(); controller.current = request;
-    let draft: KycSubmission | null = null;
-    try {
-      setProgress("Saving your details...");
-      const address = (value: KycAddress) => ({ addressLine1: value.addressLine1.trim(), addressLine2: value.addressLine2.trim(),
-        barangay: value.barangay.trim(), city: value.city.trim(), province: value.province.trim(),
-        postalCode: value.postalCode.trim(), country: value.country.trim() });
-      const current = address(resolvedCurrentAddress);
-      draft = await api<KycSubmission>("/api/v1/kyc/submit", { method: "POST", signal: request.signal,
-        body: JSON.stringify({
-          legal_name: [details.firstName, details.middleName, details.lastName].map((value) => value.trim()).filter(Boolean).join(" ").slice(0, 200),
-          date_of_birth: details.dateOfBirth,
-          address: Object.values(current).filter(Boolean).join(", ").slice(0, 1000),
-          id_type: details.documentType, id_number: details.idNumber.trim(), defer_review: true,
-          personal_details: { firstName: details.firstName.trim(), lastName: details.lastName.trim(), middleName: details.middleName.trim(),
-            contactNumber: details.contactNumber.trim(), permanentAddress: address(details), currentAddress: current,
-            organization: details.organization.trim(), authorized: details.authorized },
-        }),
-      });
-      onStatusChange(draft);
-      for (const kind of imageKeys) {
-        setProgress("Uploading " + imageLabel(kind).toLowerCase() + "...");
-        const body = new FormData(); body.append("file", images[kind]!);
-        await api("/api/v1/kyc/documents/" + kind, { method: "POST", body, signal: request.signal });
-      }
-      setProgress("Submitting for review...");
-      const completed = await api<KycSubmission>("/api/v1/kyc/complete", { method: "POST", signal: request.signal });
-      onStatusChange(completed); setEditing(false); clearDraft();
-    } catch (error) {
-      if (request.signal.aborted) return;
-      // Recover a lost final response without creating duplicate submissions.
-      const saved = await getMyKyc(request.signal).catch(() => null);
-      if (saved) onStatusChange(saved);
-      if (draft && saved?.id === draft.id && saved.status === "pending") {
-        setEditing(false); clearDraft();
-      } else {
-        setServerError(error instanceof Error ? error.message + " Your form is still available; retry when ready." : "Submission failed. Please try again.");
-      }
-    } finally {
-      inFlight.current = false;
-      if (!request.signal.aborted) { setBusy(false); setProgress(""); }
-    }
+    clearDraft();
+    // Only this progress marker is persisted, never the entered personal information.
+    onStatusChange("demo_pending");
   };
   const textField = (field: TextFieldKey, label: string, options: {
     optional?: boolean; type?: string; placeholder?: string; maxLength?: number; inputMode?: "numeric" | "text" | "tel";
@@ -161,30 +97,26 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
 
   return (
     <div className="page page--narrow kyc-page">
-      <button type="button" className="back-link" disabled={busy} onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Back to Settings</button>
+      <button type="button" className="back-link" onClick={onBack}><ArrowLeft size={18} aria-hidden="true" /> Back to Settings</button>
       <div className="kyc-heading">
         <div><h1 className="page-title">Verify your identity</h1><p className="page-sub">{roleName} account</p></div>
         <span className="kyc-badge">KYC</span>
       </div>
-      {loading ? <p role="status">Loading verification status...</p> : loadError ? (
-        <section className="card kyc-panel"><p role="alert">{loadError}</p><button className="btn-secondary" onClick={onRefresh}>Try again</button></section>
-      ) : !editing && !["not_started", "draft"].includes(status) ? (
+      {status !== "not_started" ? (
         <section className="card kyc-panel" aria-labelledby="kyc-status-title">
           <ClipboardCheck className="kyc-status-icon" size={38} aria-hidden="true" />
-          <h2 id="kyc-status-title" ref={headingRef} tabIndex={-1}>{KYC_LABELS[status]}</h2>
-          <p>{status === "pending" ? "Your information and documents have been submitted for review."
-            : status === "approved" ? "Your identity verification has been approved."
-            : "Review the feedback and submit updated information and photos."}</p>
-          {submission?.review_note && <p>{submission.review_note}</p>}
+          <h2 id="kyc-status-title" ref={headingRef} tabIndex={-1}>{DEMO_KYC_LABELS[status]}</h2>
+          <p>{status === "demo_pending"
+            ? "You have completed the verification steps. Submission is not available yet, so your information has not been sent for review."
+            : "This is a saved review-screen preview. No documents were reviewed and your account has not been verified. Start again to return to the verification steps."}</p>
+          <p className="muted">Your personal details, address, and photos have been cleared. Only this step's progress is saved in the current tab.</p>
           <div className="kyc-actions">
             <button type="button" className="btn-primary" onClick={onBack}>Back to Settings</button>
-            <button type="button" className="btn-secondary" onClick={onRefresh}>Refresh status</button>
-            {(status === "rejected" || status === "resubmission_required") && <button type="button" className="btn-secondary" onClick={() => { setEditing(true); setStep(1); }}>Update information</button>}
+            <button type="button" className="btn-secondary" onClick={() => { clearDraft(); onStatusChange("not_started"); }}>Start again</button>
           </div>
         </section>
       ) : (
         <>
-          {status === "draft" && <p className="kyc-document-note">Your submission is incomplete. Review your details and select the required photos to submit for review.</p>}
           <ol className="kyc-steps" aria-label="Verification steps">
             {["Personal details", "Documents", "Review"].map((label, index) => (
               <li key={label} className={step === index + 1 ? "kyc-step--active" : ""} aria-current={step === index + 1 ? "step" : undefined}>
@@ -193,9 +125,6 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
             ))}
           </ol>
           <form ref={formRef} className="card kyc-panel" onSubmit={submit} noValidate autoComplete="off">
-            {serverError && <p className="auth-error" role="alert">{serverError}</p>}
-            {progress && <p role="status" aria-live="polite">{progress}</p>}
-            <fieldset className="integration-fieldset" disabled={busy}>
             <h2 ref={headingRef} tabIndex={-1}>{["Personal details", "Identity documents", "Review your information"][step - 1]}</h2>
             {step === 1 && <div className="kyc-fields">
               <strong className="kyc-name-heading">Name</strong>
@@ -241,9 +170,8 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
                 </select>
                 {errors.documentType && <span className="auth-error" id="kyc-error-documentType">{errors.documentType}</span>}
               </label>
-              {textField("idNumber", "ID number", { placeholder: "Enter the number on your ID" })}
               {details.documentType && <>
-                <div className="kyc-document-note">{isPassport ? "Passport: add the photo page showing your personal details." : "Card ID: add both the front and back of the same ID."} Each image must be JPG or PNG, up to 4 MB.</div>
+                <div className="kyc-document-note">{isPassport ? "Passport: add the photo page showing your personal details." : "Card ID: add both the front and back of the same ID."} Each image must be JPG, PNG, or WebP, up to 5 MB.</div>
                 <div className="kyc-two-col kyc-document-grid">
                   {imageKeys.map((key) => <ImageField key={key} id={key} label={imageLabel(key)} hint={imageHint(key)} value={images[key]} error={errors[key]}
                     onChange={(file) => { setImages((current) => ({ ...current, [key]: file })); setConsent(false); }}
@@ -269,22 +197,21 @@ export function VerificationScreen({ role, submission, loading, loadError, onRef
                 <AddressReview address={resolvedCurrentAddress} />
               </ReviewSection>
               <ReviewSection title="Identity documents" onEdit={() => { setStep(2); setConsent(false); }}>
-                <dl className="kyc-review"><ReviewRow label="Document type" value={details.documentType} /><ReviewRow label="ID number" value={details.idNumber} /></dl>
+                <dl className="kyc-review"><ReviewRow label="Document type" value={details.documentType} /></dl>
                 <div className="kyc-two-col kyc-review-images">
                   {imageKeys.map((key) => images[key] && <div key={key}><strong>{imageLabel(key)}</strong><LocalPreview file={images[key]!} label={imageLabel(key)} onInvalid={() => { setImages((current) => ({ ...current, [key]: null })); goWithErrors(2, { [key]: "This photo could not be opened. Choose another image." }); }} /></div>)}
                 </div>
               </ReviewSection>
               <label className="kyc-check"><input type="checkbox" checked={consent}
                 onChange={(event) => { setConsent(event.target.checked); setErrors({}); }} aria-invalid={Boolean(errors.consent)} aria-describedby={errors.consent ? "kyc-error-consent" : undefined} />
-                <span>I confirm that my details and photos are accurate and consent to their use for identity verification.</span></label>
+                <span>I have reviewed my details, address, and photos. I understand they will not be submitted while verification is unavailable.</span></label>
               {errors.consent && <span className="auth-error" id="kyc-error-consent">{errors.consent}</span>}
             </div>}
             <div className="kyc-actions kyc-form-actions">
               {step > 1 && <button type="button" className="btn-secondary" onClick={() => { setStep(step - 1); setErrors({}); setConsent(false); }}>Previous</button>}
-              <button type="submit" className="btn-primary">{busy ? "Submitting..." : step === 3 ? "Submit for review" : "Continue"}<ArrowRight size={18} aria-hidden="true" /></button>
+              <button type="submit" className="btn-primary">{step === 3 ? "Finish" : "Continue"}<ArrowRight size={18} aria-hidden="true" /></button>
               <button type="button" className="kyc-cancel" onClick={onBack}>Cancel</button>
             </div>
-            </fieldset>
           </form>
         </>
       )}
@@ -342,7 +269,7 @@ function ImageField({ id, label, hint, value, onChange, error, onError }: {
   return <div className="kyc-image-field">
     <span className="field__label" id={inputId + "-label"}>{label}</span>
     <p className="kyc-upload-hint" id={inputId + "-hint"}>{hint}</p>
-    <input id={inputId} className="kyc-upload-input" type="file" accept="image/jpeg,image/png"
+    <input id={inputId} className="kyc-upload-input" type="file" accept="image/jpeg,image/png,image/webp"
       aria-labelledby={inputId + "-label"} aria-invalid={Boolean(error)} aria-describedby={inputId + "-hint" + (error ? " " + inputId + "-error" : "")}
       onChange={(event) => {
         const file = event.target.files?.[0]; event.target.value = "";
@@ -351,7 +278,7 @@ function ImageField({ id, label, hint, value, onChange, error, onError }: {
       }} />
     <label className="kyc-upload-target" htmlFor={inputId}>
       {value ? <><LocalPreview file={value} label={label} onInvalid={() => { onChange(null); onError("This photo could not be opened. Choose another image."); }} /><span>Replace photo</span></>
-        : <><ImagePlus size={30} aria-hidden="true" /><strong>Choose photo</strong><span>JPG or PNG - up to 4 MB</span></>}
+        : <><ImagePlus size={30} aria-hidden="true" /><strong>Choose photo</strong><span>JPG, PNG, or WebP - up to 5 MB</span></>}
     </label>
     {error && <span className="auth-error" id={inputId + "-error"}>{error}</span>}
     {value && <button type="button" className="kyc-cancel" onClick={() => { onChange(null); onError(undefined); }}>Remove {label.toLowerCase()}</button>}

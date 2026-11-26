@@ -1,98 +1,71 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ArrowLeft, User } from "lucide-react";
-import { api } from "../api";
-import type { EventItem, ScreenName } from "../types";
-interface Attendee {
-  attendee_id: number;
-  username: string;
-  checked_in_at: string | null;
-}
-export function AttendanceScreen({
-  event,
-  onNavigate,
-}: {
-  event: EventItem;
-  onNavigate: (s: ScreenName) => void;
-}) {
-  const abort = useRef<AbortController>();
-  const [rows, setRows] = useState<Attendee[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const refresh = useCallback(async () => {
-    abort.current?.abort();
-    const controller = new AbortController();
-    abort.current = controller;
-    setLoading(true);
-    setError("");
-    try {
-      const value = await api<Attendee[]>(
-        `/api/v1/events/${event.id}/attendees`,
-        { signal: controller.signal },
-      );
-      if (!controller.signal.aborted) setRows(value);
-    } catch (e) {
-      if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : "Could not load attendees.");
-    } finally {
-      if (!controller.signal.aborted) setLoading(false);
-    }
-  }, [event.id]);
-  useEffect(() => {
-    void refresh();
-    return () => abort.current?.abort();
-  }, [refresh]);
+import { ATTENDEES } from "../data/events";
+import type { ScreenName } from "../types";
+
+type Status = "IN" | "PENDING";
+
+export function AttendanceScreen({ onNavigate }: { onNavigate: (s: ScreenName) => void }) {
+  const [rows, setRows] = useState(() => ATTENDEES.map((a) => ({ ...a })));
+  const checkedIn = rows.filter((a) => a.status === "IN").length;
+
+  // Frontend-only: tap a status to toggle check-in (nothing is saved).
+  const toggle = (id: string) =>
+    setRows((list) =>
+      list.map((a) =>
+        a.id === id
+          ? { ...a, status: (a.status === "IN" ? "PENDING" : "IN") as Status }
+          : a
+      )
+    );
+
   return (
     <div className="page page--narrow">
       <button className="back-link" onClick={() => onNavigate("event-detail")}>
-        <ArrowLeft size={18} /> Back
+        <ArrowLeft size={18} strokeWidth={2.2} /> Back
       </button>
       <h1 className="page-title">Attendance</h1>
-      <p className="page-sub">{event.title}</p>
-      <button
-        className="btn-secondary"
-        disabled={loading}
-        onClick={() => void refresh()}
-      >
-        Refresh attendance
-      </button>
-      {loading && <p role="status">Loading attendees...</p>}
-      {error && (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
-      )}
-      {!loading && !error && (
-        <>
-          <div className="stats-row">
-            <div className="stat-card stat-card--green">
-              <span>Checked in</span>
-              <strong className="stat-card__value">
-                {rows.filter((r) => r.checked_in_at).length}
-              </strong>
-            </div>
-            <div className="stat-card">
-              <span>Registered</span>
-              <strong className="stat-card__value">{rows.length}</strong>
-            </div>
-          </div>
-          <div className="stack">
-            {rows.map((r) => (
-              <div className="attendee-row card" key={r.attendee_id}>
-                <span className="attendee-row__left">
-                  <User size={18} />
-                  <strong>{r.username}</strong>
+      <p className="page-sub">Naga Sunday Market · Aug 23</p>
+
+      <div className="stats-row">
+        <div className="stat-card stat-card--green">
+          <span className="stat-card__label">Checked in</span>
+          <span className="stat-card__value">{checkedIn}</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-card__label">Registered</span>
+          <span className="stat-card__value">{rows.length}</span>
+        </div>
+      </div>
+
+      <section className="block">
+        <h2 className="section-title block__title">Attendees ({rows.length})</h2>
+        <p className="attendee-hint muted">Tap a status to check a member in or out.</p>
+        <div className="stack">
+          {rows.map((a) => (
+            <div className="attendee-row card" key={a.id}>
+              <span className="attendee-row__left">
+                <span className="attendee-row__avatar">
+                  <User size={18} strokeWidth={2.2} />
                 </span>
-                <span
-                  className={`status-pill ${r.checked_in_at ? "status-pill--in" : "status-pill--pending"}`}
-                >
-                  {r.checked_in_at ? "IN" : "PENDING"}
+                <span className="attendee-row__name">
+                  <strong>{a.name}</strong>
+                  <span className="muted">{a.id}</span>
                 </span>
-              </div>
-            ))}
-          </div>
-          {!rows.length && <p className="empty">No registrations yet.</p>}
-        </>
-      )}
+              </span>
+              <button
+                className={`status-pill ${
+                  a.status === "IN" ? "status-pill--in" : "status-pill--pending"
+                }`}
+                onClick={() => toggle(a.id)}
+                aria-label={`Toggle check-in for ${a.name}`}
+              >
+                {a.status}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

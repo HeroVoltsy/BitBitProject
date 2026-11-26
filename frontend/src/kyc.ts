@@ -1,14 +1,23 @@
-export type KycStatus = "not_started" | "draft" | "pending" | "approved" | "rejected" | "resubmission_required";
-export const KYC_LABELS: Record<KycStatus, string> = {
-  not_started: "Not started", draft: "Documents incomplete", pending: "Under review",
-  approved: "Verified", rejected: "Not approved", resubmission_required: "Changes requested",
+/** Prototype metadata only. Identity fields and images are never persisted here. */
+export type DemoKycStatus = "not_started" | "demo_pending" | "demo_approved" | "demo_changes_requested";
+export type DemoKycRole = "attendee" | "host";
+export type DemoKycRecord = Partial<Record<DemoKycRole, DemoKycStatus>>;
+
+export const DEMO_KYC_LABELS: Record<DemoKycStatus, string> = {
+  not_started: "Not started",
+  demo_pending: "Ready to submit",
+  demo_approved: "Approval preview",
+  demo_changes_requested: "Changes requested preview",
 };
-export type KycRole = "attendee" | "host";
-
 export const DOCUMENT_TYPES = ["National ID", "Passport", "Driver's license"] as const;
-export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-export interface KycDetails {
+export function getDemoKycStatus(record: DemoKycRecord | undefined, role: DemoKycRole): DemoKycStatus {
+  const status = record?.[role];
+  return status && Object.prototype.hasOwnProperty.call(DEMO_KYC_LABELS, status) ? status : "not_started";
+}
+
+export interface DemoKycDetails {
   firstName: string;
   lastName: string;
   middleName: string;
@@ -22,16 +31,15 @@ export interface KycDetails {
   postalCode: string;
   country: string;
   documentType: string;
-  idNumber: string;
   organization: string;
   authorized: boolean;
 }
-export type KycAddress = Pick<KycDetails, "addressLine1" | "addressLine2" | "barangay" | "city" | "province" | "postalCode" | "country">;
+export type KycAddress = Pick<DemoKycDetails, "addressLine1" | "addressLine2" | "barangay" | "city" | "province" | "postalCode" | "country">;
 export type AddressErrors = Partial<Record<keyof KycAddress, string>>;
-export type DetailErrors = Partial<Record<keyof KycDetails, string>>;
+export type DetailErrors = Partial<Record<keyof DemoKycDetails, string>>;
 export type DocumentErrors = Partial<Record<"documentType" | "front" | "back" | "selfie", string>>;
 
-export function validateIdentity(details: KycDetails, role: KycRole, today = new Date()): DetailErrors {
+export function validateIdentity(details: DemoKycDetails, role: DemoKycRole, today = new Date()): DetailErrors {
   const errors: DetailErrors = {};
   if (!details.firstName.trim() || details.firstName.trim().length > 100) errors.firstName = "Enter your first name (up to 100 characters).";
   if (!details.lastName.trim() || details.lastName.trim().length > 100) errors.lastName = "Enter your last name (up to 100 characters).";
@@ -86,15 +94,11 @@ export function validateDocuments(documentType: string, images: { front: boolean
 }
 
 export function validateImage(file: { size: number; type: string }): string | undefined {
-  if (!["image/jpeg", "image/png"].includes(file.type)) return "Choose a JPG or PNG image.";
-  if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) return "Choose a non-empty image up to 4 MB.";
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return "Choose a JPG, PNG, or WebP image.";
+  if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) return "Choose a non-empty image up to 5 MB.";
   return undefined;
 }
 
 export function resolveCurrentAddress(permanent: KycAddress, current: KycAddress, sameAsPermanent: boolean): KycAddress {
   return sameAsPermanent ? permanent : current;
-}
-
-export function validateIdNumber(value: string): string | undefined {
-  return value.trim().length < 3 || value.trim().length > 100 ? "Enter your ID number (3?100 characters)." : undefined;
 }

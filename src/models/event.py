@@ -11,7 +11,6 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.dialects.postgresql import JSONB
 
 from src.db.base import Base
 
@@ -35,9 +34,6 @@ class Event(Base):
         index=True,
         nullable=False,
     )
-
-    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    audiences: Mapped[list | None] = mapped_column(JSONB)
 
     location: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
@@ -158,9 +154,3 @@ class EventStaff(Base):
     accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
     )
-
-
-class EventLike(Base):
-    __tablename__ = "event_likes"
-    event_id: Mapped[int] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)

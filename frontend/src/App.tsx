@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { TopNav } from "./components/TopNav";
 import { ShieldCheck } from "lucide-react";
 import { VerificationScreen } from "./screens/VerificationScreen";
-import { KYC_LABELS } from "./kyc";
-import { useVerification } from "./useVerification";
+import { DEMO_KYC_LABELS, getDemoKycStatus } from "./kyc";
 import { HomeScreen } from "./screens/HomeScreen";
 import { JoinerOnboarding } from "./components/JoinerOnboarding";
 import { normalizeDiscoveryProfile } from "./discovery";
@@ -20,508 +19,436 @@ import { TermsScreen } from "./screens/TermsScreen";
 import { PrivacyScreen } from "./screens/PrivacyScreen";
 import { BylawsScreen } from "./screens/BylawsScreen";
 import { OrganizedEventsScreen } from "./screens/OrganizedEventsScreen";
+import { FollowersScreen } from "./screens/FollowersScreen";
 import { LikedEventsScreen } from "./screens/LikedEventsScreen";
 import { HostDashboardScreen } from "./screens/HostDashboardScreen";
 import { StaffScreen } from "./screens/StaffScreen";
 import { StaffScannerScreen } from "./screens/StaffScannerScreen";
 import { ManageStaffDialog } from "./components/ManageStaffDialog";
-import { useEvents } from "./useEvents";
-import { CATEGORIES } from "./data/events";
-import { remindersFor } from "./data/notifications";
+import { useStaff } from "./useStaff";
+import { useRatings } from "./useRatings";
+import { CATEGORIES, FEED_EVENTS, findEvent } from "./data/events";
+import { SAMPLE_NOTIFICATIONS, remindersFor } from "./data/notifications";
 import { useAuth, type Role } from "./useAuth";
 import { useToast } from "./components/Toast";
 import { ToastProvider } from "./components/Toast";
 import { AuthGateProvider } from "./components/AuthGate";
 import type { EventItem, ProfileTab, ScreenName } from "./types";
 
-type EventOrigin =
-  "home" | "profile" | "organized-events" | "liked-events" | "host-dashboard";
+const LIKED_KEY = "salika.liked";
+const JOINED_KEY = "salika.joined";
+// Events the user left (also overrides the sample data's "attending" flags).
+const LEFT_KEY = "salika.left";
+
+/** Read a string-id list from sessionStorage, ignoring anything malformed. */
+function loadIds(key: string): string[] {
+  try {
+    const stored: unknown = JSON.parse(sessionStorage.getItem(key) ?? "[]");
+    return Array.isArray(stored) ? stored.filter((x): x is string => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveIds(key: string, ids: string[]) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(ids));
+  } catch {
+    /* storage unavailable — ids stay in memory only */
+  }
+}
+
+// Screens that can open an event detail, and the label of the detail's Back button.
+type EventOrigin = "home" | "profile" | "organized-events" | "liked-events" | "host-dashboard";
+const BACK_LABELS: Record<EventOrigin, string> = {
+  home: "Back to events",
+  profile: "Back to profile",
+  "organized-events": "Back to your events",
+  "liked-events": "Back to liked events",
+  "host-dashboard": "Back to dashboard",
+};
+
+// Two UIs: attendees browse/join events; hosts get an admin-style dashboard.
+// A screen from the other UI falls back to that role's home.
+const ATTENDEE_ONLY = new Set<ScreenName>(["home", "calendar", "map", "liked-events", "discovery"]);
 const HOST_ONLY = new Set<ScreenName>([
   "host-dashboard",
   "organized-events",
   "qr-scanner",
   "attendance",
   "create-event",
+  "followers",
 ]);
-const ATTENDEE_ONLY = new Set<ScreenName>([
-  "home",
-  "calendar",
-  "map",
-  "liked-events",
-  "discovery",
-]);
+
 export default function App() {
+  // ToastProvider wraps everything inside AppShell, so the shell can show toasts.
   return (
     <ToastProvider>
       <AppShell />
     </ToastProvider>
   );
 }
+
 function AppShell() {
-  const {
-    session,
-    login,
-    logout,
-    restoring,
-    sessionError,
-    setRole,
-    setDiscoveryProfile,
-  } = useAuth();
-  const events = useEvents(session?.id);
-  const verification = useVerification(session?.id);
+  const { session, login, logout, setRole, setDemoKycStatus, setDiscoveryProfile } = useAuth();
+  const activeRole: Role = session?.role === "host" ? "host" : "attendee";
+  const demoKycStatus = getDemoKycStatus(session?.demoKyc, activeRole);
   const notify = useToast();
   const isHost = session?.role === "host";
+  const { eventStaff, invites, inviteStaff, removeStaff, respondToInvite, resetStaff } = useStaff();
+  const { ratings, rateEvent, resetRatings } = useRatings();
+  // Host's "Manage Staff" pop-up (which event it's for), and the event staff are scanning.
+  const [staffDialogEvent, setStaffDialogEvent] = useState<EventItem | null>(null);
+  const [staffEvent, setStaffEvent] = useState<EventItem | null>(null);
   const [screen, setScreen] = useState<ScreenName>("home");
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [staffDialogId, setStaffDialogId] = useState<string | null>(null);
-  const [origin, setOrigin] = useState<EventOrigin>("home");
+  const [activeEvent, setActiveEvent] = useState<EventItem>(FEED_EVENTS[0]);
+  // Where the event detail's Back button returns to (the screen that opened it).
+  const [eventOrigin, setEventOrigin] = useState<EventOrigin>("home");
+  // Kept here so returning to Profile restores the Organizer/Attendee tab.
   const [profileTab, setProfileTab] = useState<ProfileTab>("organizer");
-  const [dark, setDark] = useState(() => {
+  // Ids of events the user liked (heart on the event page), newest first. Kept for the tab.
+  const [likedIds, setLikedIds] = useState<string[]>(() => loadIds(LIKED_KEY));
+  // Ids of events the user joined (Join button or "sasali" on a card). Kept for the tab.
+  const [joinedIds, setJoinedIds] = useState<string[]>(() => loadIds(JOINED_KEY));
+  const [leftIds, setLeftIds] = useState<string[]>(() => loadIds(LEFT_KEY));
+  const [dark, setDark] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem("salika.theme") === "dark";
     } catch {
       return false;
     }
   });
+
+  // Apply the theme to the document root and remember it for the tab.
   useEffect(() => {
-    document.documentElement.setAttribute(
-      "data-theme",
-      dark ? "dark" : "light",
-    );
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
     try {
       sessionStorage.setItem("salika.theme", dark ? "dark" : "light");
     } catch {
-      /* optional preference */
+      /* storage unavailable — theme stays in memory only */
     }
   }, [dark]);
-  useEffect(() => {
-    if (!session && !restoring) {
-      setActiveId(null);
-      setStaffDialogId(null);
-      setScreen("home");
-    }
-  }, [session, restoring]);
+
+  useEffect(() => saveIds(LIKED_KEY, likedIds), [likedIds]);
+  useEffect(() => saveIds(JOINED_KEY, joinedIds), [joinedIds]);
+  useEffect(() => saveIds(LEFT_KEY, leftIds), [leftIds]);
+
+  const toggleLiked = useCallback((id: string) => {
+    setLikedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [id, ...ids]));
+  }, []);
+
+  const joinEvent = useCallback((id: string) => {
+    setJoinedIds((ids) => (ids.includes(id) ? ids : [id, ...ids]));
+    setLeftIds((ids) => ids.filter((x) => x !== id));
+  }, []);
+
+  // Leave ("unjoin") an event, after the two-step confirmation.
+  // TODO(backend): call the leave-event API here, e.g. POST /events/:id/leave
+  // with { reason }. The server must remove the RSVP, invalidate the QR code,
+  // and notify the host (bell + email), including the optional reason.
+  const leaveEvent = useCallback(
+    (event: EventItem, _reason?: string) => {
+      setJoinedIds((ids) => ids.filter((x) => x !== event.id));
+      setLeftIds((ids) => (ids.includes(event.id) ? ids : [event.id, ...ids]));
+      notify(`You left ${event.title}. The host has been notified.`);
+    },
+    [notify]
+  );
+
+  // Signed-out visitors aren't attending anything (sample "attending" flags are the demo user's).
+  const isAttending = (e: EventItem) =>
+    Boolean(session) &&
+    !leftIds.includes(e.id) &&
+    (Boolean(e.attending) || joinedIds.includes(e.id));
+
+  const likedEvents = likedIds.map(findEvent).filter((e): e is EventItem => e !== undefined);
+
   const navigate = useCallback((next: ScreenName) => {
     setScreen(next);
+    // Return to the top of the page on every navigation.
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   }, []);
-  const all = Array.from(
-    new Map(
-      [
-        ...events.invites.map((i) => i.event),
-        ...events.liked,
-        ...events.joined,
-        ...events.events,
-      ].map((e) => [e.id, e]),
-    ).values(),
+
+  const openEvent = useCallback(
+    (event: EventItem, origin: EventOrigin = "home") => {
+      setActiveEvent(event);
+      setEventOrigin(origin);
+      navigate("event-detail");
+    },
+    [navigate]
   );
-  const find = (id: string | null) => all.find((e) => e.id === id);
-  const active = find(activeId);
-  const staffDialog = find(staffDialogId);
-  const likedIds = events.liked.map((e) => e.id);
-  const isAttending = (event: EventItem) =>
-    events.joined.some((e) => e.id === event.id);
-  const openEvent = (event: EventItem, from: EventOrigin = "home") => {
-    setActiveId(event.id);
-    setOrigin(from);
-    navigate("event-detail");
-  };
-  const perform = async (action: () => Promise<unknown>, success?: string) => {
-    try {
-      await action();
-      if (success) notify(success);
-      return true;
-    } catch (e) {
-      notify(
-        e instanceof Error ? e.message : "The request could not be completed.",
-      );
-      return false;
-    }
-  };
-  const join = (id: string) => {
-    void perform(
-      () => events.join(id),
-      "You're going! Your registration has been saved.",
-    );
-  };
-  const like = (id: string) => {
-    const event = find(id);
-    if (event)
-      void perform(
-        () => events.toggleLike(event),
-        event.liked ? "Removed from your liked events" : "Event saved",
-      );
-  };
-  const respond = (id: string, accept: boolean) =>
-    perform(
-      () => events.respond(id, accept),
-      accept ? "Staff invitation accepted" : "Invitation declined",
-    );
-  const switchRole = async (role: Role) => {
-    if (await perform(() => setRole(role)))
+
+  // Schedule and Explore only know an event's (sometimes shortened) title.
+  const openEventByTitle = useCallback(
+    (title?: string) =>
+      openEvent((title && FEED_EVENTS.find((e) => e.title.includes(title))) || FEED_EVENTS[0]),
+    [openEvent]
+  );
+
+  // Settings → "Sali ka as a host!" / "Sali na!"
+  const switchRole = useCallback(
+    (role: Role) => {
+      setRole(role);
       navigate(role === "host" ? "host-dashboard" : "home");
-  };
-  const invites = events.invites;
-  const pendingInvites = invites
-    .filter((i) => i.status === "pending" && !i.event.ended)
-    .map((i) => ({
-      eventId: i.event.id,
-      eventTitle: i.event.title,
-      invitedBy: i.event.hostName ?? "Organizer",
-    }));
-  const canScan =
-    active &&
-    invites.some(
-      (i) =>
-        i.event.id === active.id && i.status === "accepted" && !i.event.ended,
-    );
-  const notifications = remindersFor(events.joined.filter((e) => !e.ended)).map(
-    (n) => ({ ...n, available: true }),
+      notify(role === "host" ? "You're now hosting. Welcome to your dashboard!" : "Sali na! Find events to join.");
+    },
+    [setRole, navigate, notify]
   );
-  const roleView =
+
+  // Host tools open for a specific event, so their Back goes event → dashboard.
+  const openTool = useCallback(
+    (event: EventItem, tool: "qr-scanner" | "attendance") => {
+      setActiveEvent(event);
+      setEventOrigin("host-dashboard");
+      navigate(tool);
+    },
+    [navigate]
+  );
+
+  const roleView: ScreenName =
     isHost && ATTENDEE_ONLY.has(screen)
       ? "host-dashboard"
       : !isHost && HOST_ONLY.has(screen)
         ? "home"
         : screen;
-  const view =
-    !session &&
-    [
-      "profile",
-      "settings",
-      "verification",
-      "staff",
-      "staff-scanner",
-      "discovery",
-    ].includes(roleView)
+
+  // Check-in Staff (per-event, scanner-only access) — works in both UIs.
+  const pendingInvites = invites
+    .filter((i) => i.status === "pending" && !findEvent(i.eventId)?.ended)
+    .map((i) => ({
+      eventId: i.eventId,
+      invitedBy: i.invitedBy,
+      eventTitle: findEvent(i.eventId)?.title ?? "an event",
+    }));
+  // Bell notifications: a reminder for every event the user is going to, then
+  // other activity. Events that no longer exist are flagged, not opened.
+  const notifications = session
+    ? [
+        ...remindersFor(FEED_EVENTS.filter((e) => !e.hosting && isAttending(e))),
+        ...SAMPLE_NOTIFICATIONS,
+      ].map((n) => ({ ...n, available: !n.eventId || findEvent(n.eventId) !== undefined }))
+    : [];
+  const openNotificationEvent = (eventId: string) => {
+    const event = findEvent(eventId);
+    if (event) openEvent(event, isHost ? "host-dashboard" : "home");
+  };
+
+  // Staff access ends with the event. `ended` comes from the sample data; the
+  // backend owns the real end time + grace period and must reject late scans.
+  const eventEnded = (eventId: string) => findEvent(eventId)?.ended === true;
+  // The Staff page only exists while the user has an accepted invite for an
+  // event that hasn't ended. Pending invites are answered from the bell menu.
+  const hasStaffAccess =
+    Boolean(session) &&
+    invites.some((i) => i.status === "accepted" && !eventEnded(i.eventId));
+  const canScan = (e: EventItem | null): e is EventItem =>
+    e !== null &&
+    !e.ended &&
+    invites.some((i) => i.eventId === e.id && i.status === "accepted");
+
+  const respond = useCallback(
+    (eventId: string, accept: boolean) => {
+      // An invite to an event that already ended can't be accepted.
+      if (accept && findEvent(eventId)?.ended) {
+        notify("This invitation expired because the event has ended.");
+        return;
+      }
+      respondToInvite(eventId, accept);
+      notify(accept ? "You're now check-in staff for this event." : "Invitation declined.");
+    },
+    [respondToInvite, notify]
+  );
+
+  // Staff and verification pages need an account; Staff pages also need an
+  // accepted invite, and the scanner needs one for that specific event.
+  const view: ScreenName =
+    !session && (roleView === "staff" || roleView === "staff-scanner" || roleView === "verification" || roleView === "discovery")
       ? "home"
-      : roleView;
-  const kycStatus = verification.submission?.status ?? "not_started";
-  const eventViews = [
-    "home",
-    "host-dashboard",
-    "profile",
-    "event-detail",
-    "calendar",
-    "map",
-    "organized-events",
-    "liked-events",
-    "host-profile",
-    "staff",
-    "staff-scanner",
-    "qr-scanner",
-    "attendance",
-  ];
+      : (roleView === "staff" || roleView === "staff-scanner") && !hasStaffAccess
+        ? isHost
+          ? "host-dashboard"
+          : "home"
+      : roleView === "staff-scanner" && !canScan(staffEvent)
+        ? "staff"
+        : roleView;
+
+  const handleLogout = useCallback(() => {
+    logout();
+    resetStaff();
+    setStaffEvent(null);
+    // Likes belong to the signed-in user; don't hand them to the next person on this tab.
+    setLikedIds([]);
+    setJoinedIds([]);
+    setLeftIds([]);
+    resetRatings();
+    setScreen("home");
+  }, [logout, resetStaff, resetRatings]);
+
+  // No auth gate: anyone can browse. Features that need an account open the
+  // sign-in pop-up via useAuthGate().requireAuth (see components/AuthGate.tsx).
   return (
-    <AuthGateProvider
-      signedIn={Boolean(session)}
-      restoring={restoring}
-      onLogin={login}
-      onSavePreferences={setDiscoveryProfile}
-    >
-      <div className="app">
-        <TopNav
-          key={session?.id ?? "visitor"}
-          active={view}
-          onNavigate={navigate}
-          userName={session?.name}
-          isHost={isHost}
-          hasStaffAccess={invites.length > 0}
-          staffInvites={pendingInvites}
-          onRespondInvite={respond}
-          notifications={notifications}
-          onOpenEvent={(id) => {
-            const e = find(id);
-            if (e) openEvent(e);
-          }}
-        />
-        <main>
-          {restoring && (
-            <p className="page" role="status">
-              Checking your session...
-            </p>
-          )}
-          {sessionError && (
-            <p className="page auth-error" role="alert">
-              {sessionError}
-            </p>
-          )}
-          {eventViews.includes(view) && (events.loading || events.error) && (
-            <div className="page event-load-status">
-              {events.loading && <p role="status">Loading events...</p>}
-              {events.error && (
-                <p className="auth-error" role="alert">
-                  {events.error}{" "}
-                  <button
-                    className="btn-secondary"
-                    onClick={() => void events.refresh()}
-                  >
-                    Retry
-                  </button>
-                </p>
-              )}
-            </div>
-          )}
-          {session && (view === "home" || view === "host-dashboard") && (
-            <aside className="kyc-banner" aria-label="Identity verification">
-              <ShieldCheck size={24} />
-              <div>
-                <strong>Identity verification</strong>
-                <p>
-                  {verification.loading
-                    ? "Loading status..."
-                    : verification.error
-                      ? "Status unavailable. Open verification to retry."
-                      : kycStatus === "not_started"
-                        ? "Complete identity verification for your account."
-                        : KYC_LABELS[kycStatus]}
-                </p>
-              </div>
-              <button
-                className="btn-secondary"
-                onClick={() => navigate("verification")}
-              >
-                {kycStatus === "not_started" ? "Get started" : "View progress"}
-              </button>
-            </aside>
-          )}
-          {view === "verification" && session && (
-            <VerificationScreen
-              key={session.id}
-              role={session.role}
-              submission={verification.submission}
-              loading={verification.loading}
-              loadError={verification.error}
-              onRefresh={verification.refresh}
-              onStatusChange={verification.update}
-              onBack={() => navigate("settings")}
-            />
-          )}
-          {view === "home" && (
-            <HomeScreen
-              events={events.events}
-              onOpenEvent={openEvent}
-              likedIds={likedIds}
-              onToggleLiked={like}
-              isAttending={isAttending}
-              onJoin={join}
-              discoveryProfile={session?.discoveryProfile}
-            />
-          )}
-          {view === "discovery" && session && (
-            <div className="page page--narrow">
-              <div className="card onboarding-settings-card">
-                <JoinerOnboarding
-                  key={session.id}
-                  titleId="discovery-settings-title"
-                  editing
-                  initialProfile={normalizeDiscoveryProfile(
-                    session.discoveryProfile,
-                    CATEGORIES,
-                  )}
-                  onComplete={async (profile) => {
-                    await setDiscoveryProfile(profile);
-                    navigate("home");
-                    notify("Preferences updated");
-                  }}
-                  onSkip={() => navigate("settings")}
-                />
-              </div>
-            </div>
-          )}
-          {view === "liked-events" && session && (
-            <LikedEventsScreen
-              likedEvents={events.liked}
-              onOpenEvent={(e) => openEvent(e, "liked-events")}
-              onToggleLiked={like}
-            />
-          )}
-          {view === "host-dashboard" && session && (
-            <HostDashboardScreen
-              firstName={session.name.split(" ")[0]}
-              events={events.events}
-              onOpenEvent={(e) => openEvent(e, "host-dashboard")}
-              onOpenTool={(e, tool) => {
-                setActiveId(e.id);
-                setOrigin("host-dashboard");
-                navigate(tool);
-              }}
-              onManageStaff={(e) => setStaffDialogId(e.id)}
-            />
-          )}
-          {view === "organized-events" && (
-            <OrganizedEventsScreen
-              events={events.events.filter((e) => e.hosting)}
-              onBack={() => navigate("host-dashboard")}
-              onOpenEvent={(e) => openEvent(e, "organized-events")}
-            />
-          )}
-          {view === "profile" && session && (
-            <ProfileScreen
-              onNavigate={navigate}
-              onOpenEvent={(e) => openEvent(e, "profile")}
-              tab={profileTab}
-              onTabChange={setProfileTab}
-              isHost={Boolean(isHost)}
-              userName={session.name}
-              userEmail={session.email}
-              events={events.events}
-              goingEvents={events.joined}
-            />
-          )}
-          {view === "staff" && session && (
-            <StaffScreen
-              invites={invites}
-              busy={events.busy}
-              onRespond={respond}
-              onOpenScanner={(e) => {
-                setActiveId(e.id);
-                navigate("staff-scanner");
-              }}
-            />
-          )}
-          {view === "staff-scanner" &&
-            session &&
-            (active && canScan ? (
-              <StaffScannerScreen
-                key={`${session.id}:${active.id}`}
-                event={active}
-                onBack={() => navigate("staff")}
-              />
-            ) : (
-              <p className="page">
-                You need an accepted staff invitation for this event.
-              </p>
-            ))}
-          {view === "calendar" && (
-            <CalendarScreen events={events.events} onOpenEvent={openEvent} />
-          )}
-          {view === "map" && (
-            <MapScreen events={events.events} onOpenEvent={openEvent} />
-          )}
-          {view === "create-event" && session && (
-            <CreateEventScreen onNavigate={navigate} onCreate={events.create} />
-          )}
-          {view === "event-detail" &&
-            (active ? (
-              <EventDetailScreen
-                key={`${session?.id}:${active.id}`}
-                event={active}
-                busy={events.busy}
-                liked={likedIds.includes(active.id)}
-                onToggleLiked={() => like(active.id)}
-                attending={isAttending(active)}
-                onJoin={() => join(active.id)}
-                onLeave={() => {
-                  void perform(
-                    () => events.leave(active.id),
-                    "You left this event.",
-                  );
-                }}
-                onBack={() => navigate(origin)}
-                backLabel="Back to events"
-                onOpenHost={() => navigate("host-profile")}
-                onNavigate={navigate}
-                onManageStaff={
-                  active.hosting ? () => setStaffDialogId(active.id) : undefined
-                }
-                onCancel={
-                  active.hosting
-                    ? () => {
-                        if (
-                          window.confirm(
-                            `Cancel ${active.title}? Registrations and check-in will close.`,
-                          )
-                        )
-                          void perform(
-                            () => events.cancel(active.id),
-                            "Event cancelled",
-                          ).then((ok) => {
-                            if (ok) navigate("host-dashboard");
-                          });
-                      }
-                    : undefined
-                }
-              />
-            ) : (
-              !events.loading && (
-                <p className="page">This event is unavailable.</p>
-              )
-            ))}
-          {view === "host-profile" && active && (
-            <HostProfileScreen
-              host={active}
-              events={events.events}
-              onBack={() => navigate("event-detail")}
-              onOpenEvent={openEvent}
-            />
-          )}
-          {view === "qr-scanner" &&
-            (active?.hosting ? (
-              <QrScannerScreen
-                key={`${session?.id}:${active.id}`}
-                event={active}
-                onNavigate={navigate}
-              />
-            ) : (
-              <div className="page">
-                <p>Choose an event to check people in.</p>
-                <button
-                  className="btn-primary"
-                  onClick={() => navigate("host-dashboard")}
-                >
-                  Choose event
-                </button>
-              </div>
-            ))}
-          {view === "attendance" && active?.hosting && (
-            <AttendanceScreen
-              key={`${session?.id}:${active.id}`}
-              event={active}
-              onNavigate={navigate}
-            />
-          )}
-          {view === "settings" && session && (
-            <SettingsScreen
-              onNavigate={navigate}
-              onLogout={() => {
-                logout();
-                setActiveId(null);
-                setStaffDialogId(null);
-                navigate("home");
-              }}
-              session={session}
-              dark={dark}
-              onToggleDark={() => setDark((v) => !v)}
-              onSwitchRole={switchRole}
-              kycLabel={
-                verification.loading
-                  ? "Loading..."
-                  : verification.error
-                    ? "Status unavailable"
-                    : KYC_LABELS[kycStatus]
-              }
-            />
-          )}
-          {view === "terms" && <TermsScreen onNavigate={navigate} />}
-          {view === "privacy" && <PrivacyScreen onNavigate={navigate} />}
-          {view === "bylaws" && <BylawsScreen onNavigate={navigate} />}
-        </main>
-        {staffDialog && session && staffDialog.hosting && (
-          <ManageStaffDialog
-            key={`${session.id}:${staffDialog.id}`}
-            event={staffDialog}
-            ownEmail={session.email}
-            onClose={() => setStaffDialogId(null)}
-            onChanged={() => {
-              void events.refresh();
+    <AuthGateProvider signedIn={Boolean(session)} onLogin={login}>
+    <div className="app">
+      <TopNav
+        active={view}
+        onNavigate={navigate}
+        userName={session?.name}
+        isHost={isHost}
+        hasStaffAccess={hasStaffAccess}
+        staffInvites={session ? pendingInvites : []}
+        onRespondInvite={respond}
+        notifications={notifications}
+        onOpenEvent={openNotificationEvent}
+      />
+      <main>
+        {session && (view === "home" || view === "host-dashboard") && (
+          <aside className="kyc-banner" aria-label="Identity verification">
+            <ShieldCheck size={24} aria-hidden="true" />
+            <div><strong>Identity verification</strong><p>{demoKycStatus === "not_started" ? "Complete the identity steps for your " + (isHost ? "Host" : "Joiner") + " account." : DEMO_KYC_LABELS[demoKycStatus]}</p></div>
+            <button type="button" className="btn-secondary" onClick={() => navigate("verification")}>{demoKycStatus === "not_started" ? "Get started" : "View progress"}</button>
+          </aside>
+        )}
+        {view === "verification" && session && (
+          <VerificationScreen key={session.email + ":" + activeRole} role={activeRole} status={demoKycStatus}
+            onStatusChange={(status) => setDemoKycStatus(activeRole, status)} onBack={() => navigate("settings")} />
+        )}
+        {view === "home" && (
+          <HomeScreen
+            onOpenEvent={openEvent}
+            likedIds={likedIds}
+            onToggleLiked={toggleLiked}
+            isAttending={isAttending}
+            onJoin={joinEvent}
+            discoveryProfile={session?.discoveryProfile}
+          />
+        )}
+        {view === "discovery" && session && !isHost && (
+          <div className="page page--narrow"><div className="card onboarding-settings-card">
+            <JoinerOnboarding key={session.email} titleId="discovery-settings-title" editing
+              initialProfile={normalizeDiscoveryProfile(session.discoveryProfile, CATEGORIES)}
+              onComplete={(profile) => { setDiscoveryProfile(profile); navigate("home"); notify("Your preferences have been updated"); }}
+              onSkip={() => navigate("settings")} />
+          </div></div>
+        )}
+        {view === "liked-events" && session && (
+          <LikedEventsScreen
+            likedEvents={likedEvents}
+            onOpenEvent={(e) => openEvent(e, "liked-events")}
+            onToggleLiked={toggleLiked}
+          />
+        )}
+        {view === "host-dashboard" && session && (
+          <HostDashboardScreen
+            firstName={session.name.split(" ")[0]}
+            onOpenEvent={(e) => openEvent(e, "host-dashboard")}
+            onOpenTool={openTool}
+            staffCount={(id) => (eventStaff[id] ?? []).length}
+            onManageStaff={setStaffDialogEvent}
+          />
+        )}
+        {view === "staff" && session && (
+          <StaffScreen
+            invites={invites}
+            onRespond={respond}
+            onOpenScanner={(e) => {
+              setStaffEvent(e);
+              navigate("staff-scanner");
             }}
           />
         )}
-        <footer className="app-footer">
-          <span>Sali Ka by BitBit · 2026</span>
-        </footer>
-      </div>
+        {view === "staff-scanner" && session && canScan(staffEvent) && (
+          <StaffScannerScreen event={staffEvent} onBack={() => navigate("staff")} />
+        )}
+        {view === "calendar" && <CalendarScreen onOpenEvent={openEventByTitle} />}
+        {view === "map" && (
+          <MapScreen onOpenEvent={openEventByTitle} onNavigate={navigate} />
+        )}
+        {view === "create-event" && <CreateEventScreen onNavigate={navigate} />}
+        {view === "profile" && session && (
+          <ProfileScreen
+            onNavigate={navigate}
+            onOpenEvent={(e) => openEvent(e, "profile")}
+            tab={profileTab}
+            onTabChange={setProfileTab}
+            isHost={isHost}
+            userName={session?.name ?? ""}
+            userEmail={session?.email ?? ""}
+            goingEvents={FEED_EVENTS.filter((e) => !e.hosting && isAttending(e))}
+            ratings={ratings}
+            onRate={(event, r) => {
+              // TODO(backend): POST /events/:id/ratings { stars, comment, anonymous }.
+              // The server notifies the host (bell + email) and must hide the
+              // rater's name when anonymous is true.
+              const edited = Boolean(ratings[event.id]);
+              rateEvent(event.id, r);
+              notify(
+                `${edited ? "Rating updated" : "Thanks for rating"}! ${event.hostName} has been notified${
+                  r.anonymous ? " (your name is hidden)" : ""
+                }.`
+              );
+            }}
+          />
+        )}
+        {view === "event-detail" && (
+          <EventDetailScreen
+            event={activeEvent}
+            liked={likedIds.includes(activeEvent.id)}
+            onToggleLiked={() => toggleLiked(activeEvent.id)}
+            attending={isAttending(activeEvent)}
+            onJoin={() => joinEvent(activeEvent.id)}
+            onLeave={(reason) => leaveEvent(activeEvent, reason)}
+            onBack={() => navigate(eventOrigin)}
+            backLabel={BACK_LABELS[eventOrigin]}
+            onOpenHost={() => navigate("host-profile")}
+            onNavigate={navigate}
+            onManageStaff={
+              isHost && activeEvent.hosting ? () => setStaffDialogEvent(activeEvent) : undefined
+            }
+          />
+        )}
+        {view === "host-profile" && (
+          <HostProfileScreen onBack={() => navigate("event-detail")} onOpenEvent={openEvent} />
+        )}
+        {view === "qr-scanner" && <QrScannerScreen onNavigate={navigate} />}
+        {view === "attendance" && <AttendanceScreen onNavigate={navigate} />}
+        {view === "settings" && session && (
+          <SettingsScreen
+            onNavigate={navigate}
+            onLogout={handleLogout}
+            session={session}
+            dark={dark}
+            onToggleDark={() => setDark((v) => !v)}
+            onSwitchRole={switchRole}
+          />
+        )}
+        {view === "terms" && <TermsScreen onNavigate={navigate} />}
+        {view === "privacy" && <PrivacyScreen onNavigate={navigate} />}
+        {view === "bylaws" && <BylawsScreen onNavigate={navigate} />}
+        {view === "organized-events" && (
+          <OrganizedEventsScreen
+            onBack={() => navigate("host-dashboard")}
+            onOpenEvent={(e) => openEvent(e, "organized-events")}
+          />
+        )}
+        {view === "followers" && <FollowersScreen onBack={() => navigate("profile")} />}
+      </main>
+
+      {staffDialogEvent && (
+        <ManageStaffDialog
+          event={staffDialogEvent}
+          staff={eventStaff[staffDialogEvent.id] ?? []}
+          ownEmail={session?.email}
+          onInvite={(email) => inviteStaff(staffDialogEvent.id, email)}
+          onRemove={(email) => removeStaff(staffDialogEvent.id, email)}
+          onClose={() => setStaffDialogEvent(null)}
+        />
+      )}
+
+      <footer className="app-footer">
+        <span>Sali Ka by BitBit • 2026</span>
+        <span className="muted">Front-end demo · sample data only</span>
+      </footer>
+    </div>
     </AuthGateProvider>
   );
 }
