@@ -5,21 +5,64 @@
   "framework": "vite",
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/backend/auth/:path*",
+      "destination": "https://bit-bit-project.vercel.app/auth/:path*"
+    },
+    {
+      "source": "/backend/users/:path*",
+      "destination": "https://bit-bit-project.vercel.app/users/:path*"
+    },
+    {
+      "source": "/backend/api/v1/events",
+      "destination": "https://bit-bit-project.vercel.app/api/v1/events"
+    },
+    {
+      "source": "/backend/api/v1/events/:path*",
+      "destination": "https://bit-bit-project.vercel.app/api/v1/events/:path*"
+    },
+    {
+      "source": "/backend/api/v1/qr/:path*",
+      "destination": "https://bit-bit-project.vercel.app/api/v1/qr/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
+    {
+      "source": "/backend/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, max-age=0"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+          "value": "camera=(self), microphone=(), geolocation=(), interest-cohort=()"
         },
         {
           "key": "Strict-Transport-Security",

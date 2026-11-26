@@ -1,5 +1,7 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { api, type ApiUser } from "../api";
+import { sessionFromUser } from "../useAuth";
 import type { Role, Session } from "../useAuth";
 
 /**
@@ -11,6 +13,7 @@ export type AuthMode = "login" | "signup";
 
 interface Errors {
   name?: string;
+  username?: string;
   email?: string;
   password?: string;
   confirm?: string;
@@ -33,6 +36,15 @@ export function AuthForm({
   onAuthenticated: (s: Session, mode: AuthMode) => void;
 }) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
+  const [username, setUsername] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [requestError, setRequestError] = useState("");
+  const lock = useRef(false);
+  const abort = useRef(new AbortController());
+  useEffect(() => {
+    abort.current = new AbortController();
+    return () => abort.current.abort();
+  }, []);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,51 +57,120 @@ export function AuthForm({
   const formRef = useRef<HTMLFormElement>(null);
 
   const switchMode = (m: AuthMode) => {
+    if (lock.current) return;
+    setRequestError("");
     setMode(m);
     setErrors({});
   };
 
   const validate = (): Errors => {
     const e: Errors = {};
-    if (mode === "signup" && name.trim().length < 2) e.name = "Enter your full name.";
-    if (mode === "signup" && role === "host" && businessName.trim().length < 2) {
+    if (mode === "signup" && name.trim().length < 2)
+      e.name = "Enter your full name.";
+    if (
+      mode === "signup" &&
+      role === "host" &&
+      businessName.trim().length < 2
+    ) {
       e.businessName = "Enter your business name.";
     }
+    if (mode === "signup" && !/^[A-Za-z0-9_]{3,50}$/.test(username))
+      e.username = "Use 3 to 50 letters, numbers or underscores.";
     if (!EMAIL_RE.test(email.trim())) e.email = "Enter a valid email address.";
-    if (password.length < 8) e.password = "Use at least 8 characters.";
-    if (mode === "signup" && confirm !== password) e.confirm = "Passwords do not match.";
+    if (password.length > 128 || password.length < (mode === "signup" ? 12 : 1))
+      e.password =
+        mode === "signup"
+          ? "Use 12 to 128 characters."
+          : "Enter your password (up to 128 characters).";
+    if (mode === "signup" && confirm !== password)
+      e.confirm = "Passwords do not match.";
     return e;
   };
 
-  const handleSubmit = (ev: FormEvent) => {
+  const handleSubmit = async (ev: FormEvent) => {
+    if (lock.current) {
+      ev.preventDefault();
+      return;
+    }
     ev.preventDefault();
     const e = validate();
     setErrors(e);
     if (Object.keys(e).length > 0) {
       // Move focus to the first field that needs fixing (after React marks it invalid).
       requestAnimationFrame(() =>
-        formRef.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus()
+        formRef.current
+          ?.querySelector<HTMLInputElement>('[aria-invalid="true"]')
+          ?.focus(),
       );
       return;
     }
 
-    // Demo only: no password is stored or sent anywhere.
-    const displayName =
-      mode === "signup"
-        ? name.trim()
-        : email.trim().split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
-    const isHost = mode === "signup" && role === "host";
-    onAuthenticated({
-      name: displayName,
-      email: email.trim(),
-      role: isHost ? "host" : "attendee",
-      businessName: isHost ? businessName.trim() : undefined,
-      businessContact: isHost ? businessContact.trim() : undefined,
-    }, mode);
+    lock.current = true;
+    setBusy(true);
+    setRequestError("");
+    const signal = abort.current.signal;
+    let registered = false;
+    try {
+      if (mode === "signup") {
+        await api<ApiUser>("/auth/register", {
+          method: "POST",
+          token: null,
+          signal,
+          body: JSON.stringify({
+            email: email.trim(),
+            username: username.trim(),
+            password,
+          }),
+        });
+        registered = true;
+      }
+      const result = await api<{ access_token: string }>("/auth/login", {
+        method: "POST",
+        token: null,
+        signal,
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const user = await api<ApiUser>("/users/me", {
+        token: result.access_token,
+        signal,
+      });
+      if (signal.aborted) return;
+      const preferences =
+        mode === "signup"
+          ? {
+              name: name.trim(),
+              role,
+              businessName: role === "host" ? businessName.trim() : undefined,
+              businessContact:
+                role === "host" ? businessContact.trim() : undefined,
+            }
+          : {};
+      setPassword("");
+      setConfirm("");
+      onAuthenticated(
+        sessionFromUser(user, result.access_token, preferences),
+        mode,
+      );
+    } catch (error) {
+      if (!signal.aborted) {
+        setRequestError(
+          registered
+            ? "Your account was created. Please log in to continue."
+            : error instanceof Error
+              ? error.message
+              : "Could not connect to the server.",
+        );
+        if (registered) setMode("login");
+      }
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
   };
 
-  const sub = reason ?? (mode === "signup" ? "Join your community in a few seconds." : undefined);
+  const sub =
+    reason ??
+    (mode === "signup" ? "Join your community in a few seconds." : undefined);
 
   return (
     <div className="auth-card">
@@ -102,11 +183,16 @@ export function AuthForm({
         </div>
 
         {mode === "signup" && (
-          <div className="account-toggle" role="group" aria-label="Account type">
+          <div
+            className="account-toggle"
+            role="group"
+            aria-label="Account type"
+          >
             <button
               className={`account-toggle__btn ${
                 role === "attendee" ? "account-toggle__btn--active" : ""
               }`}
+              disabled={busy}
               onClick={() => setRole("attendee")}
               aria-pressed={role === "attendee"}
               type="button"
@@ -117,6 +203,7 @@ export function AuthForm({
               className={`account-toggle__btn ${
                 role === "host" ? "account-toggle__btn--active" : ""
               }`}
+              disabled={busy}
               onClick={() => setRole("host")}
               aria-pressed={role === "host"}
               type="button"
@@ -127,9 +214,14 @@ export function AuthForm({
         )}
       </div>
 
-      <div className="segmented auth-seg" role="group" aria-label="Log in or sign up">
+      <div
+        className="segmented auth-seg"
+        role="group"
+        aria-label="Log in or sign up"
+      >
         <button
           className={`segmented__tab ${mode === "login" ? "segmented__tab--active" : ""}`}
+          disabled={busy}
           onClick={() => switchMode("login")}
           aria-pressed={mode === "login"}
           type="button"
@@ -138,6 +230,7 @@ export function AuthForm({
         </button>
         <button
           className={`segmented__tab ${mode === "signup" ? "segmented__tab--active" : ""}`}
+          disabled={busy}
           onClick={() => switchMode("signup")}
           aria-pressed={mode === "signup"}
           type="button"
@@ -146,127 +239,220 @@ export function AuthForm({
         </button>
       </div>
 
-      <form className="auth-form" ref={formRef} onSubmit={handleSubmit} noValidate>
-        {mode === "signup" && (
-          <label className="field">
-            <span className="field__label">Full name</span>
-            <div className="input input--icon">
-              <User size={18} strokeWidth={2} className="muted" aria-hidden="true" />
+      <form
+        className="auth-form"
+        ref={formRef}
+        onSubmit={handleSubmit}
+        noValidate
+        aria-busy={busy}
+      >
+        <fieldset disabled={busy} className="integration-fieldset">
+          {requestError && (
+            <p className="auth-error" role="alert">
+              {requestError}
+            </p>
+          )}
+          {mode === "signup" && (
+            <label className="field">
+              <span className="field__label">Full name</span>
+              <div className="input input--icon">
+                <User
+                  size={18}
+                  strokeWidth={2}
+                  className="muted"
+                  aria-hidden="true"
+                />
+                <input
+                  name="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Kyle Sta. Rosa…"
+                  autoComplete="name"
+                  aria-invalid={Boolean(errors.name)}
+                  aria-describedby={errors.name ? "auth-err-name" : undefined}
+                />
+              </div>
+              {errors.name && (
+                <span className="auth-error" id="auth-err-name">
+                  {errors.name}
+                </span>
+              )}
+            </label>
+          )}
+
+          {mode === "signup" && (
+            <label className="field">
+              <span className="field__label">Username</span>
               <input
-                name="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Kyle Sta. Rosa…"
-                autoComplete="name"
-                aria-invalid={Boolean(errors.name)}
-                aria-describedby={errors.name ? "auth-err-name" : undefined}
+                className="input"
+                name="username"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                maxLength={50}
+                aria-invalid={Boolean(errors.username)}
+                aria-describedby={
+                  errors.username ? "auth-err-username" : undefined
+                }
+              />
+              {errors.username && (
+                <span className="auth-error" id="auth-err-username">
+                  {errors.username}
+                </span>
+              )}
+            </label>
+          )}
+          {mode === "signup" && role === "host" && (
+            <div className="business-fields">
+              <label className="field">
+                <span className="field__label">Business name</span>
+                <input
+                  className="input"
+                  name="organization"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="BitBit Cafe…"
+                  autoComplete="organization"
+                  aria-invalid={Boolean(errors.businessName)}
+                  aria-describedby={
+                    errors.businessName ? "auth-err-businessName" : undefined
+                  }
+                />
+                {errors.businessName && (
+                  <span className="auth-error" id="auth-err-businessName">
+                    {errors.businessName}
+                  </span>
+                )}
+              </label>
+
+              <label className="field">
+                <span className="field__label">Business contact</span>
+                <input
+                  className="input"
+                  name="business-contact"
+                  value={businessContact}
+                  onChange={(e) => setBusinessContact(e.target.value)}
+                  placeholder="Phone or Facebook page…"
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+          )}
+
+          <label className="field">
+            <span className="field__label">Email</span>
+            <div className="input input--icon">
+              <Mail
+                size={18}
+                strokeWidth={2}
+                className="muted"
+                aria-hidden="true"
+              />
+              <input
+                type="email"
+                name="email"
+                inputMode="email"
+                spellCheck={false}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "auth-err-email" : undefined}
               />
             </div>
-            {errors.name && <span className="auth-error" id="auth-err-name">{errors.name}</span>}
+            {errors.email && (
+              <span className="auth-error" id="auth-err-email">
+                {errors.email}
+              </span>
+            )}
           </label>
-        )}
 
-        {mode === "signup" && role === "host" && (
-          <div className="business-fields">
-            <label className="field">
-              <span className="field__label">Business name</span>
-              <input
-                className="input"
-                name="organization"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="BitBit Cafe…"
-                autoComplete="organization"
-                aria-invalid={Boolean(errors.businessName)}
-                aria-describedby={errors.businessName ? "auth-err-businessName" : undefined}
-              />
-              {errors.businessName && <span className="auth-error" id="auth-err-businessName">{errors.businessName}</span>}
-            </label>
-
-            <label className="field">
-              <span className="field__label">Business contact</span>
-              <input
-                className="input"
-                name="business-contact"
-                value={businessContact}
-                onChange={(e) => setBusinessContact(e.target.value)}
-                placeholder="Phone or Facebook page…"
-                autoComplete="off"
-              />
-            </label>
-          </div>
-        )}
-
-        <label className="field">
-          <span className="field__label">Email</span>
-          <div className="input input--icon">
-            <Mail size={18} strokeWidth={2} className="muted" aria-hidden="true" />
-            <input
-              type="email"
-              name="email"
-              inputMode="email"
-              spellCheck={false}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              aria-invalid={Boolean(errors.email)}
-                aria-describedby={errors.email ? "auth-err-email" : undefined}
-            />
-          </div>
-          {errors.email && <span className="auth-error" id="auth-err-email">{errors.email}</span>}
-        </label>
-
-        <label className="field">
-          <span className="field__label">Password</span>
-          <div className="input input--icon">
-            <Lock size={18} strokeWidth={2} className="muted" aria-hidden="true" />
-            <input
-              type={showPw ? "text" : "password"}
-              name="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              aria-invalid={Boolean(errors.password)}
-                aria-describedby={errors.password ? "auth-err-password" : undefined}
-            />
-            <button
-              type="button"
-              className="auth-pw-toggle"
-              onClick={() => setShowPw((v) => !v)}
-              aria-label={showPw ? "Hide password" : "Show password"}
-            >
-              {showPw ? <EyeOff size={18} strokeWidth={2} /> : <Eye size={18} strokeWidth={2} />}
-            </button>
-          </div>
-          {errors.password && <span className="auth-error" id="auth-err-password">{errors.password}</span>}
-        </label>
-
-        {mode === "signup" && (
           <label className="field">
-            <span className="field__label">Confirm password</span>
+            <span className="field__label">Password</span>
             <div className="input input--icon">
-              <Lock size={18} strokeWidth={2} className="muted" aria-hidden="true" />
+              <Lock
+                size={18}
+                strokeWidth={2}
+                className="muted"
+                aria-hidden="true"
+              />
               <input
                 type={showPw ? "text" : "password"}
-                name="confirm-password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Re-enter your password"
-                autoComplete="new-password"
-                aria-invalid={Boolean(errors.confirm)}
-                aria-describedby={errors.confirm ? "auth-err-confirm" : undefined}
+                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={
+                  mode === "signup" ? "At least 12 characters" : "Your password"
+                }
+                autoComplete={
+                  mode === "signup" ? "new-password" : "current-password"
+                }
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={
+                  errors.password ? "auth-err-password" : undefined
+                }
               />
+              <button
+                type="button"
+                className="auth-pw-toggle"
+                onClick={() => setShowPw((v) => !v)}
+                aria-label={showPw ? "Hide password" : "Show password"}
+              >
+                {showPw ? (
+                  <EyeOff size={18} strokeWidth={2} />
+                ) : (
+                  <Eye size={18} strokeWidth={2} />
+                )}
+              </button>
             </div>
-            {errors.confirm && <span className="auth-error" id="auth-err-confirm">{errors.confirm}</span>}
+            {errors.password && (
+              <span className="auth-error" id="auth-err-password">
+                {errors.password}
+              </span>
+            )}
           </label>
-        )}
 
-        <button type="submit" className="btn-primary auth-submit">
-          {mode === "login" ? "Log In" : "Create Account"}
-          <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
-        </button>
+          {mode === "signup" && (
+            <label className="field">
+              <span className="field__label">Confirm password</span>
+              <div className="input input--icon">
+                <Lock
+                  size={18}
+                  strokeWidth={2}
+                  className="muted"
+                  aria-hidden="true"
+                />
+                <input
+                  type={showPw ? "text" : "password"}
+                  name="confirm-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.confirm)}
+                  aria-describedby={
+                    errors.confirm ? "auth-err-confirm" : undefined
+                  }
+                />
+              </div>
+              {errors.confirm && (
+                <span className="auth-error" id="auth-err-confirm">
+                  {errors.confirm}
+                </span>
+              )}
+            </label>
+          )}
+
+          <button type="submit" className="btn-primary auth-submit">
+            {busy
+              ? "Connecting..."
+              : mode === "login"
+                ? "Log In"
+                : "Create Account"}
+            <ArrowRight size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        </fieldset>
       </form>
     </div>
   );

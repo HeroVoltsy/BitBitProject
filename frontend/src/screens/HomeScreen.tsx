@@ -3,17 +3,26 @@ import { CalendarDays, Search, SlidersHorizontal } from "lucide-react";
 import { EventCard } from "../components/EventCard";
 import { DatePicker } from "../components/DatePicker";
 import { FilterChip } from "../components/FilterChip";
-import { useToast } from "../components/Toast";
 import { useAuthGate } from "../components/AuthGate";
 import { WelcomeBanner } from "../components/WelcomeBanner";
-import { CATEGORIES, FEED_EVENTS } from "../data/events";
+import { CATEGORIES } from "../data/events";
 import type { Category, EventItem } from "../types";
 import { normalizeDiscoveryProfile, personalizeEvents } from "../discovery";
 
 // Month label (e.g. "AUG") -> 0-indexed month, for matching a picked date.
 const MONTH_IDX: Record<string, number> = {
-  JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
-  JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
+  JAN: 0,
+  FEB: 1,
+  MAR: 2,
+  APR: 3,
+  MAY: 4,
+  JUN: 5,
+  JUL: 6,
+  AUG: 7,
+  SEP: 8,
+  OCT: 9,
+  NOV: 10,
+  DEC: 11,
 };
 
 type DateFilter =
@@ -52,7 +61,10 @@ function datesFor(filter: NonNullable<DateFilter>, today: Date): Date[] {
 function dateLabel(filter: DateFilter): string | null {
   if (!filter) return null;
   if (filter.kind === "day")
-    return filter.date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    return filter.date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
   return DATE_PRESETS.find((p) => p.kind === filter.kind)!.label;
 }
 
@@ -66,6 +78,7 @@ export function HomeScreen({
   isAttending,
   onJoin,
   discoveryProfile,
+  events,
 }: {
   onOpenEvent: (e: EventItem) => void;
   likedIds: string[];
@@ -73,13 +86,12 @@ export function HomeScreen({
   isAttending: (e: EventItem) => boolean;
   onJoin: (id: string) => void;
   discoveryProfile?: unknown;
+  events: EventItem[];
 }) {
-  const notify = useToast();
-  const { requireAuth } = useAuthGate();
+  const { requireAuth, signedIn, openAuth } = useAuthGate();
 
   const toggleLiked = (e: EventItem) =>
     requireAuth(() => {
-      notify(likedIds.includes(e.id) ? "Removed from your liked events" : "Added to Profile → Liked");
       onToggleLiked(e.id);
     }, "Log in to save events you like.");
 
@@ -91,7 +103,6 @@ export function HomeScreen({
     }
     requireAuth(() => {
       onJoin(e.id);
-      notify(`You're going to ${e.title}!`);
     }, `Log in to join ${e.title}.`);
   };
 
@@ -107,38 +118,46 @@ export function HomeScreen({
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   }, []);
 
-  // Distinct locations (with how many events each has) from the sample data.
+  // Distinct locations (with how many events each has) from the loaded events.
   const locations = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const e of FEED_EVENTS) {
+    for (const e of events) {
       if (!e.hosting) counts.set(e.location, (counts.get(e.location) ?? 0) + 1);
     }
     return Array.from(counts, ([name, count]) => ({ name, count }));
-  }, []);
-
+  }, [events]);
 
   const filterDays = dateFilter ? datesFor(dateFilter, today) : null;
   const calendarValue =
-    dateFilter && dateFilter.kind !== "weekend" ? datesFor(dateFilter, today)[0] : null;
+    dateFilter && dateFilter.kind !== "weekend"
+      ? datesFor(dateFilter, today)[0]
+      : null;
 
   const profile = normalizeDiscoveryProfile(discoveryProfile, CATEGORIES);
-  const feed = personalizeEvents(FEED_EVENTS, profile).filter((e) => {
-    if (e.hosting) return false; // your own hosted events don't show in the feed
+  const feed = personalizeEvents(events, profile).filter((e) => {
+    if (e.hosting || e.started) return false; // your own hosted events don't show in the feed
     const q = query.trim().toLowerCase();
     const byCat = active === "All" || e.category === active;
     const byQuery =
-      q === "" || e.title.toLowerCase().includes(q) || e.location.toLowerCase().includes(q);
+      q === "" ||
+      e.title.toLowerCase().includes(q) ||
+      e.location.toLowerCase().includes(q);
     const byLoc = location === null || e.location === location;
     const byDate =
       !filterDays ||
       filterDays.some(
-        (d) => Number(e.day) === d.getDate() && MONTH_IDX[e.monthLabel] === d.getMonth()
+        (d) =>
+          Number(e.day) === d.getDate() &&
+          MONTH_IDX[e.monthLabel] === d.getMonth() &&
+          new Date(e.startsAt ?? "").getFullYear() === d.getFullYear(),
       );
     return byCat && byQuery && byLoc && byDate;
   });
 
   const activeCount =
-    (active !== "All" ? 1 : 0) + (location !== null ? 1 : 0) + (dateFilter !== null ? 1 : 0);
+    (active !== "All" ? 1 : 0) +
+    (location !== null ? 1 : 0) +
+    (dateFilter !== null ? 1 : 0);
 
   const clearAll = () => {
     setActive("All");
@@ -150,6 +169,14 @@ export function HomeScreen({
   return (
     <div className="page">
       <WelcomeBanner />
+      {!signedIn && (
+        <div className="card form-card">
+          <p>Log in to browse events.</p>
+          <button className="btn-primary" onClick={() => openAuth("login")}>
+            Log In
+          </button>
+        </div>
+      )}
       <div className="home-toolbar">
         <div className="home-search">
           <Search size={18} strokeWidth={2} className="muted" />
@@ -229,7 +256,9 @@ export function HomeScreen({
                 onClick={() => setShowCalendar((v) => !v)}
               >
                 <CalendarDays size={15} strokeWidth={2.2} aria-hidden="true" />
-                {dateFilter?.kind === "day" ? dateLabel(dateFilter) : "Pick a date"}
+                {dateFilter?.kind === "day"
+                  ? dateLabel(dateFilter)
+                  : "Pick a date"}
               </button>
             </div>
             {showCalendar && (
@@ -274,7 +303,9 @@ export function HomeScreen({
       </div>
 
       <section className="block">
-        <h2 className="section-title block__title">{profile ? "Recommended for you" : "Events Around You"}</h2>
+        <h2 className="section-title block__title">
+          {profile ? "Recommended for you" : "Events Around You"}
+        </h2>
         <div className="feed-grid">
           {feed.map((e) => (
             <EventCard
@@ -289,7 +320,9 @@ export function HomeScreen({
             />
           ))}
         </div>
-        {feed.length === 0 && <p className="empty">No events match your filters.</p>}
+        {signedIn && feed.length === 0 && (
+          <p className="empty">No events match your filters.</p>
+        )}
         <p className="sr-only" aria-live="polite">
           {feed.length} {feed.length === 1 ? "event" : "events"} shown
         </p>
