@@ -1,15 +1,15 @@
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.deps import get_current_user
+from src.api.deps import get_current_user, get_optional_user
 from src.db.session import DbSession
-from src.models.event import Event, EventRegistration, EventStaff
+from src.models.event import Event, EventRegistration, EventStaff, EventLike
 from src.models.qr_ticket import QRTicket
 from src.models.user import User
 from src.schemas.event import (
@@ -46,22 +46,25 @@ async def create_event(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
-    event = Event(
-        host_id=current_user.id,
-        **data.model_dump(),
-    )
+    if current_user.account_type != "host":
+        raise HTTPException(status_code=403, detail="Switch to a host account before posting an event")
+    if data.starts_at <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=422, detail="Choose a future start time")
+    values = data.model_dump()
+    values["ends_at"] = data.ends_at or data.starts_at + timedelta(hours=4)
+    event = Event(host_id=current_user.id, **values)
 
     db.add(event)
     await db.commit()
     await db.refresh(event)
 
-    return event
+    return (await enrich_events(db, [event], current_user))[0]
 
 
 @router.get("", response_model=list[EventResponse])
 async def list_events(
     db: DbSession,
-    current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User | None, Depends(get_optional_user)],
     category: str | None = None,
     q: str | None = None,
     starts_after: datetime | None = None,
@@ -95,30 +98,58 @@ async def list_events(
         query = query.where(Event.host_id == host_id)
 
     if mine:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Log in to view your events")
         query = query.where(Event.host_id == current_user.id)
 
     query = (
         query
-        .order_by(Event.starts_at.asc())
+        .order_by(Event.promoted.desc(), Event.starts_at.asc(), Event.id.asc())
         .limit(limit)
         .offset(offset)
     )
 
     result = await db.execute(query)
-    return result.scalars().all()
+    return await enrich_events(db, list(result.scalars()), current_user)
+
+
+@router.get("/mine/registrations", response_model=list[EventResponse])
+async def joined_events(db: DbSession, current_user: Annotated[User, Depends(get_current_user)]):
+    events = list((await db.execute(select(Event).join(EventRegistration, EventRegistration.event_id == Event.id).where(
+        EventRegistration.attendee_id == current_user.id, EventRegistration.status == "registered",
+        Event.status == "published").order_by(Event.starts_at))).scalars())
+    return await enrich_events(db, events, current_user)
+
+
+@router.get("/mine/staff")
+async def my_staff_invites(db: DbSession, current_user: Annotated[User, Depends(get_current_user)]):
+    rows = (await db.execute(select(EventStaff, Event).join(Event, Event.id == EventStaff.event_id).where(
+        EventStaff.user_id == current_user.id, EventStaff.status.in_(["pending", "accepted"]),
+        Event.status == "published").order_by(Event.starts_at))).all()
+    events = await enrich_events(db, [event for _, event in rows], current_user)
+    return [{"event": event.model_dump(), "status": member.status} for (member, _), event in zip(rows, events)]
+
+
+@router.get("/mine/likes", response_model=list[EventResponse])
+async def liked_events(db: DbSession, current_user: Annotated[User, Depends(get_current_user)]):
+    events = list((await db.execute(select(Event).join(EventLike, EventLike.event_id == Event.id).where(
+        EventLike.user_id == current_user.id, Event.status == "published").order_by(Event.starts_at))).scalars())
+    return await enrich_events(db, events, current_user)
+
 
 
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(
     event_id: int,
     db: DbSession,
+    current_user: Annotated[User | None, Depends(get_optional_user)],
 ):
     event = await get_event_or_404(db, event_id)
 
     if event.status != "published":
         raise HTTPException(status_code=404, detail="Event not found")
 
-    return event
+    return (await enrich_events(db, [event], current_user))[0]
 
 
 @router.patch("/{event_id}", response_model=EventResponse)
@@ -132,6 +163,14 @@ async def update_event(
     await require_event_host(db, event, current_user)
 
     updates = data.model_dump(exclude_unset=True)
+    for required in ("title", "category", "starts_at", "location", "promoted"):
+        if required in updates and updates[required] is None:
+            raise HTTPException(status_code=422, detail=f"{required} cannot be empty")
+    start = updates.get("starts_at", event.starts_at)
+    end = updates.get("ends_at", event.ends_at) or start + timedelta(hours=4)
+    if end.tzinfo is None or end <= start:
+        raise HTTPException(status_code=422, detail="End time must be after start time and include a timezone")
+    updates["ends_at"] = end
 
     for field, value in updates.items():
         setattr(event, field, value)
@@ -139,7 +178,7 @@ async def update_event(
     await db.commit()
     await db.refresh(event)
 
-    return event
+    return (await enrich_events(db, [event], current_user))[0]
 
 
 @router.delete("/{event_id}")
@@ -148,6 +187,7 @@ async def cancel_event(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    await db.execute(select(Event).where(Event.id == event_id).with_for_update())
     event = await get_event_or_404(db, event_id)
     await require_event_host(db, event, current_user)
 
@@ -171,6 +211,7 @@ async def register_attendee(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    await db.execute(select(Event).where(Event.id == event_id).with_for_update())
     event = await get_event_or_404(db, event_id)
 
     if event.status != "published":
@@ -254,6 +295,7 @@ async def leave_event(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    await db.execute(select(Event).where(Event.id == event_id).with_for_update())
     result = await db.execute(
         select(EventRegistration).where(
             EventRegistration.event_id == event_id,
@@ -303,7 +345,7 @@ async def list_event_attendees(
     current_user: Annotated[User, Depends(get_current_user)],
 ):
     event = await get_event_or_404(db, event_id)
-    await require_event_manager(db, event, current_user)
+    await require_event_host(db, event, current_user)
 
     result = await db.execute(
         select(EventRegistration, User, QRTicket)
@@ -343,6 +385,7 @@ async def issue_my_ticket(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    await db.execute(select(Event).where(Event.id == event_id).with_for_update())
     event = await get_event_or_404(db, event_id)
 
     if event.status != "published":
@@ -374,12 +417,14 @@ async def issue_my_ticket(
         select(QRTicket).where(
             QRTicket.event_id == event_id,
             QRTicket.attendee_id == current_user.id,
-        )
+        ).with_for_update()
     )
 
     ticket = ticket_result.scalar_one_or_none()
 
     if ticket:
+        if ticket.checked_in_at is not None:
+            raise HTTPException(status_code=409, detail="You are already checked in to this event")
         ticket.token_hash = token_hash
         ticket.created_at = datetime.now(timezone.utc)
         ticket.checked_in_at = None
@@ -421,6 +466,8 @@ async def scan_event_ticket(
             detail="This event is not active",
         )
 
+    if datetime.now(timezone.utc) > (event.ends_at or event.starts_at + timedelta(hours=4)) + timedelta(hours=2):
+        raise HTTPException(status_code=409, detail="Check-in has closed for this event")
     token_hash = hashlib.sha256(data.token.encode()).hexdigest()
 
     result = await db.execute(
@@ -493,7 +540,9 @@ async def list_event_staff(
         .order_by(EventStaff.invited_at.asc())
     )
 
-    return result.scalars().all()
+    members = list(result.scalars())
+    users = {u.id: u for u in (await db.execute(select(User).where(User.id.in_([m.user_id for m in members])))).scalars()}
+    return [staff_response(m, users.get(m.user_id)) for m in members]
 
 
 @router.post(
@@ -507,9 +556,18 @@ async def invite_event_staff(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    await db.execute(select(Event).where(Event.id == event_id).with_for_update())
     event = await get_event_or_404(db, event_id)
     await require_event_host(db, event, current_user)
 
+    if event.status != "published":
+        raise HTTPException(status_code=409, detail="This event is not active")
+    if data.email is not None:
+        user_result = await db.execute(select(User).where(User.email == str(data.email).lower()))
+        invited = user_result.scalar_one_or_none()
+        if invited is None:
+            raise HTTPException(status_code=404, detail="No account was found for that email address")
+        data.user_id = invited.id
     if data.user_id == event.host_id:
         raise HTTPException(
             status_code=400,
@@ -558,7 +616,7 @@ async def invite_event_staff(
     await db.commit()
     await db.refresh(staff)
 
-    return staff
+    return staff_response(staff, invited_user)
 
 
 @router.patch(
@@ -571,13 +629,12 @@ async def respond_to_staff_invitation(
     db: DbSession,
     current_user: Annotated[User, Depends(get_current_user)],
 ):
+    event = await get_event_or_404(db, event_id)
+    if data.status == "accepted" and (event.status != "published" or datetime.now(timezone.utc) > (event.ends_at or event.starts_at + timedelta(hours=4))):
+        raise HTTPException(status_code=409, detail="This invitation has expired")
     result = await db.execute(
-        select(EventStaff).where(
-            EventStaff.event_id == event_id,
-            EventStaff.user_id == current_user.id,
-        )
+        select(EventStaff).where(EventStaff.event_id == event_id, EventStaff.user_id == current_user.id).with_for_update()
     )
-
     staff = result.scalar_one_or_none()
 
     if staff is None:
@@ -637,3 +694,69 @@ async def remove_event_staff(
         "message": "Event staff member removed",
         "user_id": staff_user_id,
     }
+
+
+async def enrich_events(db, events, user=None):
+    if not events:
+        return []
+    ids = [e.id for e in events]
+    hosts = {u.id: u for u in (await db.execute(select(User).where(User.id.in_([e.host_id for e in events])))).scalars()}
+    counts = dict((await db.execute(select(EventRegistration.event_id, func.count()).where(
+        EventRegistration.event_id.in_(ids), EventRegistration.status == "registered").group_by(EventRegistration.event_id))).all())
+    staff_counts = dict((await db.execute(select(EventStaff.event_id, func.count()).where(
+        EventStaff.event_id.in_(ids), EventStaff.status.in_(["pending", "accepted"])).group_by(EventStaff.event_id))).all())
+    registered = set()
+    liked = set()
+    if user:
+        registered = set((await db.execute(select(EventRegistration.event_id).where(EventRegistration.event_id.in_(ids),
+            EventRegistration.attendee_id == user.id, EventRegistration.status == "registered"))).scalars())
+        liked = set((await db.execute(select(EventLike.event_id).where(EventLike.event_id.in_(ids), EventLike.user_id == user.id))).scalars())
+    out = []
+    for event in events:
+        response = EventResponse.model_validate(event)
+        host = hosts.get(event.host_id)
+        response.host_name = (host.business_name or host.display_name or host.username) if host else "Organizer"
+        response.going = counts.get(event.id, 0)
+        response.staff_count = staff_counts.get(event.id, 0)
+        response.registered = event.id in registered
+        response.liked = event.id in liked
+        out.append(response)
+    return out
+
+
+def staff_response(member, user):
+    response = StaffResponse.model_validate(member)
+    if user:
+        response.email = user.email
+        response.name = user.display_name or user.username
+    return response
+
+
+@router.post("/{event_id}/likes")
+async def like_event(event_id: int, db: DbSession, current_user: Annotated[User, Depends(get_current_user)]):
+    from sqlalchemy.dialects.postgresql import insert
+    event = await get_event_or_404(db, event_id)
+    if event.status != "published":
+        raise HTTPException(status_code=404, detail="Event not found")
+    await db.execute(insert(EventLike).values(event_id=event_id, user_id=current_user.id).on_conflict_do_nothing())
+    await db.commit()
+    return {"liked": True}
+
+
+@router.delete("/{event_id}/likes")
+async def unlike_event(event_id: int, db: DbSession, current_user: Annotated[User, Depends(get_current_user)]):
+    from sqlalchemy import delete
+    await db.execute(delete(EventLike).where(EventLike.event_id == event_id, EventLike.user_id == current_user.id))
+    await db.commit()
+    return {"liked": False}
+
+
+@router.get("/{event_id}/check-ins/summary")
+async def check_in_summary(event_id: int, db: DbSession, current_user: Annotated[User, Depends(get_current_user)]):
+    event = await get_event_or_404(db, event_id)
+    await require_event_manager(db, event, current_user)
+    registered = (await db.execute(select(func.count()).select_from(EventRegistration).where(
+        EventRegistration.event_id == event_id, EventRegistration.status == "registered"))).scalar_one()
+    checked = (await db.execute(select(func.count()).select_from(QRTicket).where(
+        QRTicket.event_id == event_id, QRTicket.checked_in_at.is_not(None)))).scalar_one()
+    return {"registered": registered, "checked_in": checked}

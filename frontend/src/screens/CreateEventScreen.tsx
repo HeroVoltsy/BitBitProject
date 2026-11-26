@@ -1,17 +1,28 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { Plus, MapPin, Check, ImagePlus } from "lucide-react";
+import { useEffect, useState, useRef, type FormEvent } from "react";
+import { MapPin, Check } from "lucide-react";
 import { CATEGORIES } from "../data/events";
 import { DatePicker } from "../components/DatePicker";
 import { TimePicker, type TimeValue } from "../components/TimePicker";
-import { StripePlaceholder } from "../components/StripePlaceholder";
-import type { Category, ScreenName } from "../types";
+import type { ApiEvent, EventInput } from "../events";
+import { OCCUPATIONS } from "../discovery";
+import type { Category, Occupation, ScreenName } from "../types";
 
-export function CreateEventScreen({ onNavigate }: { onNavigate: (s: ScreenName) => void }) {
+export function CreateEventScreen({
+  onNavigate,
+  onCreate,
+}: {
+  onNavigate: (s: ScreenName) => void;
+  onCreate: (data: EventInput) => Promise<ApiEvent>;
+}) {
+  const [audiences, setAudiences] = useState<Occupation[]>([]);
   const [category, setCategory] = useState<Category>("Market");
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<TimeValue | null>(null);
-  const [cover, setCover] = useState(false);
-  const [promote, setPromote] = useState(true);
+  const [duration, setDuration] = useState(4);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const submitting = useRef(false);
+  const [promote, setPromote] = useState(false);
   const [posted, setPosted] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -22,11 +33,45 @@ export function CreateEventScreen({ onNavigate }: { onNavigate: (s: ScreenName) 
     return () => window.clearTimeout(t);
   }, [posted, onNavigate]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitted(true);
-    if (!date || !time) return;
-    setPosted(true);
+    if (!date || !time || submitting.current) return;
+    const start = new Date(date);
+    start.setHours(
+      (time.hour % 12) + (time.period === "PM" ? 12 : 0),
+      time.minute,
+      0,
+      0,
+    );
+    if (start.getTime() <= Date.now()) {
+      setError("Choose a future date and time.");
+      return;
+    }
+    const form = new FormData(e.currentTarget);
+    submitting.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await onCreate({
+        title: String(form.get("title") ?? "").trim(),
+        category,
+        starts_at: start.toISOString(),
+        ends_at: new Date(start.getTime() + duration * 3600000).toISOString(),
+        location: String(form.get("location") ?? "").trim(),
+        description: String(form.get("description") ?? "").trim(),
+        promoted: promote,
+        audiences,
+      });
+      setPosted(true);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not publish this event.",
+      );
+    } finally {
+      submitting.current = false;
+      setBusy(false);
+    }
   };
 
   return (
@@ -35,97 +80,167 @@ export function CreateEventScreen({ onNavigate }: { onNavigate: (s: ScreenName) 
       <p className="page-sub">Share what your community is up to.</p>
 
       <form className="form-card card" onSubmit={handleSubmit}>
-        {cover ? (
-          <button type="button" className="upload-preview" onClick={() => setCover(false)}>
-            <StripePlaceholder className="upload-preview__img" showLabel={false} />
-            <span className="upload-preview__badge">
-              <ImagePlus size={15} strokeWidth={2.2} /> Change cover
-            </span>
-          </button>
-        ) : (
-          <button type="button" className="upload-area" onClick={() => setCover(true)}>
-            <Plus size={22} strokeWidth={2.4} />
-            <span>add cover photo</span>
-          </button>
-        )}
-
-        <Field label="Event Title">
-          <input className="input" placeholder="e.g. Naga Sunday Market" required />
-        </Field>
-
-        <div className="form-row">
-          <Field label="Date">
-            <DatePicker value={date} onChange={setDate} placeholder="Pick a date" />
-            {submitted && !date && <span className="auth-error">Pick a date for your event.</span>}
+        <fieldset disabled={busy || posted} className="form-fields">
+          <Field label="Event Title">
+            <input
+              className="input"
+              name="title"
+              minLength={3}
+              maxLength={180}
+              placeholder="Event title"
+              required
+            />
           </Field>
-          <Field label="Time">
-            <TimePicker value={time} onChange={setTime} placeholder="Pick a time" />
-            {submitted && !time && <span className="auth-error">Pick a start time.</span>}
+
+          <div className="form-row">
+            <Field label="Date">
+              <DatePicker
+                value={date}
+                onChange={setDate}
+                placeholder="Pick a date"
+              />
+              {submitted && !date && (
+                <span className="auth-error">Pick a date for your event.</span>
+              )}
+            </Field>
+            <Field label="Time">
+              <TimePicker
+                value={time}
+                onChange={setTime}
+                placeholder="Pick a time"
+              />
+              {submitted && !time && (
+                <span className="auth-error">Pick a start time.</span>
+              )}
+            </Field>
+          </div>
+
+          <Field label="Location">
+            <div className="input input--icon">
+              <MapPin size={18} strokeWidth={2} className="muted" />
+              <input
+                name="location"
+                minLength={2}
+                maxLength={300}
+                placeholder="Event venue and address"
+                required
+              />
+            </div>
           </Field>
-        </div>
 
-        <Field label="Location">
-          <div className="input input--icon">
-            <MapPin size={18} strokeWidth={2} className="muted" />
-            <input placeholder="Plaza Rizal, Naga City" required />
+          <Field label="Duration (hours)">
+            <input
+              className="input"
+              type="number"
+              min={0.5}
+              max={168}
+              step={0.5}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              required
+            />
+          </Field>
+          <Field label="Category">
+            <div className="pills">
+              {CATEGORIES.map((c) => (
+                <button
+                  type="button"
+                  key={c}
+                  className={`pill ${category === c ? "pill--active" : ""}`}
+                  onClick={() => setCategory(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <div className="field">
+            <span className="field__label">Suggested audience (optional)</span>
+            <div className="pills">
+              {OCCUPATIONS.filter((o) => o.value !== "prefer_not_to_say").map(
+                (o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    className={`pill ${audiences.includes(o.value) ? "pill--active" : ""}`}
+                    aria-pressed={audiences.includes(o.value)}
+                    onClick={() =>
+                      setAudiences((v) =>
+                        v.includes(o.value)
+                          ? v.filter((x) => x !== o.value)
+                          : [...v, o.value],
+                      )
+                    }
+                  >
+                    {o.label}
+                  </button>
+                ),
+              )}
+            </div>
           </div>
-        </Field>
+          <Field label="Description">
+            <textarea
+              className="input textarea"
+              name="description"
+              maxLength={10000}
+              rows={4}
+              placeholder="Tell the community about your event..."
+            />
+          </Field>
 
-        <Field label="Category">
-          <div className="pills">
-            {CATEGORIES.map((c) => (
-              <button
-                type="button"
-                key={c}
-                className={`pill ${category === c ? "pill--active" : ""}`}
-                onClick={() => setCategory(c)}
-              >
-                {c}
-              </button>
-            ))}
+          <div className="promote">
+            <div>
+              <strong>Promote this event</strong>
+              <p className="muted">
+                Feature this on the home screen discover feeds
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`toggle ${promote ? "toggle--on" : ""}`}
+              role="switch"
+              aria-checked={promote}
+              aria-label="Promote this event"
+              onClick={() => setPromote((v) => !v)}
+            >
+              <span className="toggle__knob" />
+            </button>
           </div>
-        </Field>
 
-        <Field label="Description">
-          <textarea
-            className="input textarea"
-            rows={4}
-            placeholder="Tell the community about your event..."
-          />
-        </Field>
-
-        <div className="promote">
-          <div>
-            <strong>Promote this event</strong>
-            <p className="muted">Feature this on the home screen discover feeds</p>
-          </div>
-          <button
-            type="button"
-            className={`toggle ${promote ? "toggle--on" : ""}`}
-            role="switch"
-            aria-checked={promote}
-            aria-label="Promote this event"
-            onClick={() => setPromote((v) => !v)}
-          >
-            <span className="toggle__knob" />
-          </button>
-        </div>
-
-        <button type="submit" className="btn-primary form-submit" disabled={posted}>
-          {posted ? (
-            <>
-              <Check size={18} strokeWidth={2.6} /> Posted!
-            </>
-          ) : (
-            "Post Event"
+          {error && (
+            <p role="alert" className="auth-error">
+              {error}
+            </p>
           )}
-        </button>
+          <button
+            type="submit"
+            className="btn-primary form-submit"
+            disabled={posted}
+          >
+            {posted ? (
+              <>
+                <Check size={18} strokeWidth={2.6} /> Posted!
+              </>
+            ) : busy ? (
+              "Publishing..."
+            ) : (
+              "Post Event"
+            )}
+          </button>
+        </fieldset>
       </form>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="field">
       <span className="field__label">{label}</span>
