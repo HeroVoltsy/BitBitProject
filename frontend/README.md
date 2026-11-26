@@ -11,71 +11,17 @@ app with a hovering, glassmorphic navigation bar and multi-column layouts, while
 keeping the same two-tone warm palette (cream surfaces + emerald green accent) and
 Nunito typography.
 
-> Signup, login, account type, discovery preferences, and identity verification now
-> call the FastAPI backend. Event listings and event interactions still use sample
-> data. Frontend and backend remain separate services.
-
-## API integration setup
-
-From the repository root, configure the backend `.env` privately (database URL,
-JWT secret, and a stable Fernet KYC encryption key). Use your existing working
-provider connection URL, not a pasted URL missing its database name.
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m src.core.configure_kyc
-.\.venv\Scripts\python.exe -m alembic upgrade head
-.\.venv\Scripts\python.exe -m uvicorn src.main:app --host 127.0.0.1 --port 8000
-```
-
-Migration `20261127_0006` adds profile fields, structured KYC details, and private
-encrypted document storage in PostgreSQL. New uploads no longer rely on a Vercel
-function's filesystem. Legacy local file paths remain readable where files exist.
-Database storage grows with uploads; use a private object-storage implementation
-when your application's document volume requires it. Never change the KYC key
-without a data/key migration; existing ID numbers and documents depend on it.
-
-For the frontend, copy `frontend/.env.example` to `frontend/.env.local`, then run
-`npm install` and `npm run dev` from `frontend/`. The local API URL defaults to
-`http://127.0.0.1:8000`. Do not put database passwords, JWT secrets, or KYC keys in
-frontend `VITE_` variables. Only the bearer token is retained in per-tab session
-storage; profiles are reloaded from `/users/me`, and KYC details/images are never
-written to browser storage. Tokens expire after the backend's configured lifetime;
-users log in again because the API has no refresh-token endpoint.
-
-For separate deployments, apply the migration using a trusted connection to the
-hosted database and deploy the backend first. Use the provider's direct/session
-connection for migrations where required, and its serverless pooler for the API.
-Set backend `CORS_ORIGINS` to a JSON array of exact allowed frontend origins,
-including the deployed frontend URL and local origins you use. Configure stable
-backend secrets privately in Vercel. Set frontend `VITE_API_BASE_URL` to the
-public FastAPI HTTPS URL (`https://bit-bit-project.vercel.app` for the current
-backend), then rebuild/redeploy the frontend. A Vite build embeds this value.
-Do not deploy only the frontend against the old API contract.
-
-KYC uses a draft -> document uploads -> complete flow. Interrupted uploads stay
-incomplete, and users can retry. Card IDs need front/back/selfie; passports need
-photo page/selfie. Uploads accept JPEG/PNG (PDF via API) up to 4 MiB each. The
-smaller bound leaves room for multipart data within Vercel's default body limit.
-Admin review remains API-only; the account type cannot grant admin permissions.
-No hosted migrations, environment updates, or deployments are performed by these
-local setup commands unless `.env` explicitly points to that hosted database.
-
-Validation: `npm test` and `npm run build` from `frontend/`, plus `python -m pytest
--q -o asyncio_default_fixture_loop_scope=function` from the root. Set
-`TEST_DATABASE_URL` to a local asyncpg PostgreSQL URL to include database tests;
-they create/drop only random temporary schemas, not application tables. Browser
-scripts under `tests/browser/` require Playwright and Chrome, plus a disposable API
-at `127.0.0.1:8001` (with CORS allowing `http://127.0.0.1:5175`) and frontend at
-`127.0.0.1:5175` pointing to that API. Use only disposable test databases for them.
-
+> Front-end demo only — it runs entirely in the browser on local sample data.
+> There is no backend, no authentication, and no external API calls.
 
 ---
 
 ## Features
 
-- **Login / Sign-up** - real email/password authentication, username and profile
-  persistence, Host/Joiner selection, and session restoration through FastAPI.
+- **Login / Sign-up gate** — a login and account-creation screen shown first, with
+  client-side validation, show/hide password, and a "continue as guest" option. The
+  signed-in name flows into the greeting, avatar, and settings. See the security note
+  below — this is a demo gate, not real authentication.
 - **Home feed** — greeting header, live category filtering (All / Market / Music /
   Sports / Volunteer), a hosted-event banner, and a responsive grid of event cards.
 - **Schedule** — an interactive August 2026 month calendar with event markers and a
@@ -120,14 +66,14 @@ design system so the bundle stays lean (~54 KB gzipped JS).
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/HeroVoltsy/BitBitProject.git
-cd BitBitProject/frontend
+git clone https://github.com/gbzor/mock-sali-ka.git
+cd mock-sali-ka
 
 # 2. Install dependencies
 npm install
 
-# 3. Configure the API URL in your local env file — see API integration setup above
-cp .env.example .env.local
+# 3. (Optional) create your local env file — not required to run the demo
+cp .env.example .env
 
 # 4. Start the dev server
 npm run dev
@@ -223,50 +169,93 @@ Security was treated as a requirement, not an afterthought:
   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` /
   `frame-ancestors 'none'` (clickjacking protection), `Referrer-Policy`,
   a locked-down `Permissions-Policy` (camera/mic/geolocation disabled), and HSTS.
-- **No third-party trackers or analytics.** Google Fonts and the
-  configured FastAPI API domain are explicitly allowed in the CSP.
+- **No third-party trackers or analytics.** The only external origin is Google Fonts
+  (stylesheet + font files), which is explicitly allowed in the CSP.
 - **Source maps disabled** in the production build so source is not exposed.
 - **Dependencies:** `npm audit` reports **0 vulnerabilities**.
 
-### Authentication
+### Authentication (demo gate)
 
-Passwords are sent to the configured FastAPI backend over HTTPS in deployment,
-hashed with Argon2 on the server, and never stored by the frontend. The current
-API uses bearer JWTs, retained only in per-tab session storage. The server verifies
-every protected request; the frontend gate alone grants no permissions. A refresh
-loads the real profile, and expired/invalid tokens are cleared. No refresh-token
-endpoint or cookie session is implemented. Review rate limiting, account recovery,
-and session hardening before a public launch.
+The login / sign-up screen is a **front-end UX gate only — not real
+authentication**, because this app has no backend:
+
+- **No password is ever stored, transmitted, or persisted.** On submit, the app
+  validates format (valid email, 8+ char password, matching confirmation) and then
+  discards the password entirely.
+- Only a **non-sensitive session marker** (display name + email) is kept in
+  `sessionStorage`, which is per-tab and cleared when the tab closes.
+- The gate does **not** protect any data — all content is public sample data.
+
+To make this production-grade authentication, add a backend and:
+- hash passwords server-side (e.g. bcrypt/argon2) — never store or compare plaintext;
+- serve everything over HTTPS and issue sessions via `httpOnly`, `Secure`,
+  `SameSite` cookies (not `localStorage`/`sessionStorage`);
+- add rate limiting / lockout on login, and validate all input server-side;
+- keep all credentials and API keys on the server, never in client or `VITE_` vars.
+
+If you extend this into a full-stack app, keep all authentication, database
+credentials, and private API keys on the server side — never in client code or
+`VITE_`-prefixed variables.
 
 ## Environment Variables
 
-`VITE_API_BASE_URL` is the public FastAPI URL. Local development defaults to
-`http://127.0.0.1:8000`. Database credentials and JWT/KYC secrets belong exclusively
-in the backend environment. The Vercel CSP allows the current API domain
-`https://bit-bit-project.vercel.app`; if the API domain changes, update both the
-frontend environment and the CSP `connect-src` allowlist. The backend CORS list
-must separately allow the frontend's exact origin.
+The demo requires **no** environment variables. The placeholders in `.env.example`
+exist only for when you wire the UI to a real backend:
 
-## Identity verification
+| Variable              | Description                                    | Example                       |
+| --------------------- | ---------------------------------------------- | ----------------------------- |
+| `VITE_API_BASE_URL`   | Base URL of your public events API             | `https://api.example.com`     |
+| `VITE_MAP_PUBLIC_KEY` | Public, domain-restricted map/geocoding key    | `your_public_map_key_here`    |
 
-Joiners and Hosts can submit verification from Home or Settings. Names, contact,
-permanent/current addresses, organizer information, ID number, and required photos
-are sent only when the user confirms and submits. The server encrypts ID numbers
-and uploaded document bytes with its stable KYC key. Users see their own status;
-only internal admins can download private documents and review submissions.
+## License
 
-Select National ID, driver's license, or passport. Card IDs require front/back
-images and a selfie; passports require the photo page and selfie. Uploads accept
-JPG/PNG up to 4 MiB. Personal details are saved as a draft, documents are uploaded
-individually, and the final completion call moves the submission to Under review.
-Interrupted uploads remain drafts; retry uses the still-open form. After reload,
-select photos again and re-enter the ID number, which is never returned by the API.
-Photos and identity fields are never written to browser storage.
+Released under the [MIT License](./LICENSE).
 
-Review feedback/status is loaded from the server, including after login/refresh.
-Rejected or changes-requested submissions can be updated; approved submissions
-cannot be edited. Verification is per user across account-type changes. This
-integration includes no admin web page or third-party identity-verification service.
+## Identity verification prototype
+
+Joiners and Hosts can open **Identity verification** from Home/the Host Dashboard
+or Settings. The three steps cover personal details (including residential address), identity
+documents, and a review screen. Contact number appears between Name and Address. Permanent and current addresses
+use full-width street fields, a barangay field, then paired city/region and
+postal-code/country fields. Country defaults to Philippines. A same-as-permanent
+option uses the latest permanent address without overwriting a separate current
+address draft. First and last names are
+required; middle name and additional address details are optional. Card IDs require
+front and back photos plus a selfie; passports require their photo page and a selfie. Hosts also enter organizer details
+and confirm authorization. The form has no built-in example data, autofill
+buttons, sample images, or simulated review controls.
+
+This is a frontend prototype: no upload, camera, network request, or identity check
+is performed. Use test data while developing. Images are previewed with local
+object URLs, revoked when the preview unmounts. Details and images are dropped on
+completion, cancel/navigation, or reload. Only a per-role progress marker is stored
+in this tab's session; logout removes it. No badge or real permissions are granted.
+The acknowledgement and completion screen explain that nothing has been submitted.
+Older saved review previews can be cleared with **Start again**.
+
+Run `npm run test:kyc` for validation and per-role status checks, and
+`npm run build` for the type-check and production build.
+
+### Manual walkthrough
+
+1. Sign up as a Joiner and choose **Get started** on Home.
+2. Try Continue with empty fields, then enter personal and address details on
+   the same step and proceed.
+3. Select the document type. Add both card sides (or
+   the passport photo page) and a selfie. Check that unsupported and
+   oversized images are rejected and valid images display correctly.
+4. Review all names, address fields, and document previews. Use Edit to check
+   that each section returns to its step. Check the acknowledgement and choose **Finish**.
+   The status reads **Ready to submit** because nothing has been sent.
+5. Reload: only the progress marker remains. Choose **Start again** to retry.
+6. Switch to Host in Settings. Its progress is separate, and organizer details
+   and authorization are required on the first step.
+7. Check narrow-screen and dark-mode layouts. Cancel and reopen the form to
+   confirm that details and images are cleared. Log out to clear progress.
+
+Production verification will need authenticated submission, private document
+storage, access-controlled review, a retention policy, and server-issued status.
+Never use the local prototype status for authorization.
 
 ## Joiner signup questions
 
@@ -278,8 +267,8 @@ Skip for now or Escape continues without saving any partial answers. Hosts and
 returning logins do not get the questionnaire. The signup session is created before
 the questions, and any pending join/like action resumes once after completion/skip.
 
-Completed answers are saved to the authenticated profile in PostgreSQL and return
-after logout/login, reload, and account-type switching. Joiners can edit them under **Settings > Account > Interests
+Answers live in the current tab's session marker, survive reload/role switching,
+and clear on logout. Joiners can edit them under **Settings > Account > Interests
 & recommendations**. Cancel there discards draft changes.
 
 Home keeps its existing single feed and filters. Completed answers change its
