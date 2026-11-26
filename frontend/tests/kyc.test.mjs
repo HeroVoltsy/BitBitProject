@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 const source = fs.readFileSync(new URL('../src/kyc.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ES2020 } }).outputText;
-const { validateIdentity, validateAddress, validateDocuments, requiresBackImage, validateImage, validateIdNumber, resolveCurrentAddress, MAX_IMAGE_BYTES } = await import('data:text/javascript;base64,' + Buffer.from(compiled).toString('base64'));
+const { validateIdentity, validateAddress, validateDocuments, requiresBackImage, validateImage, getDemoKycStatus, resolveCurrentAddress, MAX_IMAGE_BYTES } = await import('data:text/javascript;base64,' + Buffer.from(compiled).toString('base64'));
 const today = new Date('2026-11-06T12:00:00Z');
 const details = {
   firstName: 'Alex', lastName: 'Sample', middleName: '', dateOfBirth: '1995-06-15', contactNumber: '09123456789',
@@ -61,14 +61,17 @@ test('passport requires its photo page and selfie without a card-back image', ()
   assert.ok(validateDocuments('Passport', { front: false, back: false, selfie: true }).front);
 });
 test('image validation rejects unsupported formats, empty files, and oversized images', () => {
-  for (const type of ['image/webp', 'image/svg+xml', 'application/pdf', 'text/html', '']) assert.ok(validateImage({ size: 20, type }));
+  for (const type of ['image/svg+xml', 'application/pdf', 'text/html', '']) assert.ok(validateImage({ size: 20, type }));
   assert.ok(validateImage({ size: 0, type: 'image/png' }));
   assert.ok(validateImage({ size: MAX_IMAGE_BYTES + 1, type: 'image/jpeg' }));
-  for (const type of ['image/jpeg', 'image/png']) assert.equal(validateImage({ size: MAX_IMAGE_BYTES, type }), undefined);
+  for (const type of ['image/jpeg', 'image/png', 'image/webp']) assert.equal(validateImage({ size: MAX_IMAGE_BYTES, type }), undefined);
 });
-test('ID number is required and bounded', () => {
-  for (const value of ['', '  ', '12', 'x'.repeat(101)]) assert.ok(validateIdNumber(value));
-  assert.equal(validateIdNumber(' TEST-123 '), undefined);
+test('prototype outcomes remain separate by role and cannot become real verified status', () => {
+  const record = { attendee: 'demo_approved', host: 'demo_pending' };
+  assert.equal(getDemoKycStatus(record, 'attendee'), 'demo_approved');
+  assert.equal(getDemoKycStatus(record, 'host'), 'demo_pending');
+  assert.equal(getDemoKycStatus(undefined, 'host'), 'not_started');
+  for (const value of ['verified', 'approved', 'toString', '__proto__']) assert.equal(getDemoKycStatus({ host: value }, 'host'), 'not_started');
 });
 
 test('contact number accepts local and international formatting and rejects invalid input', () => {

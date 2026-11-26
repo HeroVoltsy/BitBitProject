@@ -1,14 +1,9 @@
 import { useState } from "react";
-import {
-  ArrowLeft,
-  ChevronRight,
-  LogOut,
-  CalendarPlus,
-  Ticket,
-} from "lucide-react";
+import { ArrowLeft, ChevronRight, LogOut, CalendarPlus, Ticket } from "lucide-react";
 import { initialsOf, type Role, type Session } from "../useAuth";
 import { useToast } from "../components/Toast";
 import type { ScreenName } from "../types";
+import { DEMO_KYC_LABELS, getDemoKycStatus } from "../kyc";
 
 type ToggleKey = "push" | "email";
 
@@ -19,7 +14,6 @@ export function SettingsScreen({
   dark,
   onToggleDark,
   onSwitchRole,
-  kycLabel,
 }: {
   onNavigate: (s: ScreenName) => void;
   onLogout: () => void;
@@ -27,7 +21,6 @@ export function SettingsScreen({
   dark: boolean;
   onToggleDark: () => void;
   onSwitchRole: (role: Role) => void;
-  kycLabel: string;
 }) {
   const isHost = session.role === "host";
   const displayEmail = session.email;
@@ -48,9 +41,7 @@ export function SettingsScreen({
       <h1 className="page-title">Settings</h1>
 
       <div className="settings-summary card">
-        <span className="settings-summary__avatar">
-          {initialsOf(session.name)}
-        </span>
+        <span className="settings-summary__avatar">{initialsOf(session.name)}</span>
         <span className="settings-summary__text">
           <strong>{session.name}</strong>
           <span className="muted">{displayEmail}</span>
@@ -62,22 +53,14 @@ export function SettingsScreen({
       <SettingsGroup title={isHost ? "Joining" : "Hosting"}>
         <div className="role-switch">
           <span className="role-switch__icon" aria-hidden="true">
-            {isHost ? (
-              <Ticket size={22} strokeWidth={2.2} />
-            ) : (
-              <CalendarPlus size={22} strokeWidth={2.2} />
-            )}
+            {isHost ? <Ticket size={22} strokeWidth={2.2} /> : <CalendarPlus size={22} strokeWidth={2.2} />}
           </span>
           <span className="role-switch__text">
-            <strong>
-              {isHost
-                ? "Want to join other events?"
-                : "Do you want to host an event?"}
-            </strong>
+            <strong>{isHost ? "Want to join other events?" : "Do you want to host an event?"}</strong>
             <span className="muted">
               {isHost
                 ? "Switch to the attendee view to browse, like, and join events near you."
-                : "Switch to the host view to post events and manage attendance."}
+                : "Switch to the host view to post events, check people in, and see your ratings."}
             </span>
           </span>
           <button
@@ -91,31 +74,15 @@ export function SettingsScreen({
       </SettingsGroup>
 
       <SettingsGroup title="Account">
-        {!isHost && (
-          <Row
-            label="Interests & recommendations"
-            chevron
-            onClick={() => onNavigate("discovery")}
-          />
-        )}
+        {!isHost && <Row label="Interests & recommendations" chevron onClick={() => onNavigate("discovery")} />}
         <Row
           label="Identity verification"
-          hint={kycLabel}
+          hint={DEMO_KYC_LABELS[getDemoKycStatus(session.demoKyc, isHost ? "host" : "attendee")]}
           chevron
           onClick={() => onNavigate("verification")}
         />
-        <Row
-          label="Edit Profile"
-          hint="Personal details, bio, and links"
-          chevron
-          onClick={demo}
-        />
-        <Row
-          label="Change Password"
-          hint="Last updated 3 months ago"
-          chevron
-          onClick={demo}
-        />
+        <Row label="Edit Profile" hint="Personal details, bio, and links" chevron onClick={demo} />
+        <Row label="Change Password" hint="Last updated 3 months ago" chevron onClick={demo} />
       </SettingsGroup>
 
       <SettingsGroup title="Notifications">
@@ -174,13 +141,7 @@ export function SettingsScreen({
   );
 }
 
-function SettingsGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function SettingsGroup({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="settings-group">
       <h2 className="settings-group__title">{title}</h2>
@@ -219,9 +180,7 @@ function Row({
       </span>
       <span className="setting-row__action">
         {value && <span className="muted">{value}</span>}
-        {chevron && (
-          <ChevronRight size={20} strokeWidth={2} className="muted" />
-        )}
+        {chevron && <ChevronRight size={20} strokeWidth={2} className="muted" />}
         {onToggle && (
           <button
             type="button"

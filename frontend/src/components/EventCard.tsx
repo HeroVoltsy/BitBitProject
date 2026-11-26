@@ -31,14 +31,7 @@ export function EventCard({
   minimal?: boolean;
 }) {
   if (!onToggleLiked && !onSasali)
-    return (
-      <CardButton
-        event={event}
-        onOpen={onOpen}
-        joined={joined}
-        minimal={minimal}
-      />
-    );
+    return <CardButton event={event} onOpen={onOpen} joined={joined} minimal={minimal} />;
   const sasaliClass = minimal
     ? joined
       ? "sasali-pill--quiet"
@@ -47,9 +40,7 @@ export function EventCard({
       ? "sasali-pill--on"
       : "";
   return (
-    <div
-      className={`eventcard-wrap ${minimal ? "eventcard-wrap--minimal" : ""}`}
-    >
+    <div className={`eventcard-wrap ${minimal ? "eventcard-wrap--minimal" : ""}`}>
       <CardButton
         event={event}
         onOpen={onOpen}
@@ -65,22 +56,14 @@ export function EventCard({
           aria-label={liked ? `Unlike ${event.title}` : `Like ${event.title}`}
           onClick={onToggleLiked}
         >
-          <Heart
-            size={18}
-            strokeWidth={2.2}
-            fill={liked ? "currentColor" : "none"}
-          />
+          <Heart size={18} strokeWidth={2.2} fill={liked ? "currentColor" : "none"} />
         </button>
       )}
       {onSasali && (
         <button
           type="button"
           className={`sasali-pill eventcard__sasali ${sasaliClass}`}
-          aria-label={
-            joined
-              ? `You're going to ${event.title}. Open event`
-              : `Join ${event.title}`
-          }
+          aria-label={joined ? `You're going to ${event.title}. Open event` : `Join ${event.title}`}
           onClick={onSasali}
         >
           <SasaliLabel joined={joined} minimal={minimal} />
@@ -90,13 +73,7 @@ export function EventCard({
   );
 }
 
-function SasaliLabel({
-  joined,
-  minimal = false,
-}: {
-  joined: boolean;
-  minimal?: boolean;
-}) {
+function SasaliLabel({ joined, minimal = false }: { joined: boolean; minimal?: boolean }) {
   if (minimal)
     return joined ? (
       <>
@@ -132,23 +109,11 @@ function CardButton({
   joined?: boolean;
   minimal?: boolean;
 }) {
-  if (minimal)
-    return (
-      <MinimalCardButton
-        event={event}
-        onOpen={onOpen}
-        sasaliSlot={sasaliSlot}
-        joined={joined}
-      />
-    );
+  if (minimal) return <MinimalCardButton event={event} onOpen={onOpen} sasaliSlot={sasaliSlot} joined={joined} />;
   return (
-    <button
-      className="eventcard"
-      onClick={onOpen}
-      aria-label={`Open ${event.title}`}
-    >
+    <button className="eventcard" onClick={onOpen} aria-label={`Open ${event.title}`}>
       <div className="eventcard__cover">
-        <StripePlaceholder className="eventcard__stripes" showLabel={false} />
+        <StripePlaceholder className="eventcard__stripes" />
         <span className="eventcard__badge">
           <CategoryBadge category={event.category} />
         </span>
@@ -156,9 +121,7 @@ function CardButton({
           <span className="eventcard__date-m">{event.monthLabel}</span>
           <span className="eventcard__date-d">{event.day}</span>
         </span>
-        {event.hosting && (
-          <span className="eventcard__hosting">YOU'RE HOSTING</span>
-        )}
+        {event.hosting && <span className="eventcard__hosting">YOU'RE HOSTING</span>}
       </div>
 
       <div className="eventcard__body">
@@ -183,9 +146,7 @@ function CardButton({
               <SasaliLabel joined={joined} />
             </span>
           ) : (
-            <span className="sasali-pill">
-              <SasaliLabel joined={joined} />
-            </span>
+            <span className="sasali-pill"><SasaliLabel joined={joined} /></span>
           )}
         </div>
       </div>
@@ -206,13 +167,9 @@ function MinimalCardButton({
   joined: boolean;
 }) {
   return (
-    <button
-      className="eventcard eventcard--minimal"
-      onClick={onOpen}
-      aria-label={`Open ${event.title}`}
-    >
+    <button className="eventcard eventcard--minimal" onClick={onOpen} aria-label={`Open ${event.title}`}>
       <div className="eventcard__cover">
-        <StripePlaceholder className="eventcard__stripes" showLabel={false} />
+        <StripePlaceholder className="eventcard__stripes" />
         <span className="eventcard__date">
           <span className="eventcard__date-m">{event.monthLabel}</span>
           <span className="eventcard__date-d">{event.day}</span>
@@ -227,12 +184,7 @@ function MinimalCardButton({
 
         <div className="eventcard__foot">
           <span className="eventcard__going">
-            <UserRound
-              size={16}
-              strokeWidth={2.4}
-              className="eventcard__going-icon"
-              aria-hidden="true"
-            />
+            <UserRound size={16} strokeWidth={2.4} className="eventcard__going-icon" aria-hidden="true" />
             <span className="going__count">{event.going} going</span>
           </span>
           <span

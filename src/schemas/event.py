@@ -1,17 +1,13 @@
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, model_validator, EmailStr
-from src.schemas.auth import Occupation
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class EventCreate(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     title: str = Field(min_length=3, max_length=180)
     category: str = Field(min_length=2, max_length=40)
     starts_at: datetime
-    ends_at: datetime | None = None
-    audiences: list[Occupation] = Field(default_factory=list, max_length=7)
     location: str = Field(min_length=2, max_length=300)
-    description: str | None = Field(default=None, max_length=10000)
+    description: str | None = None
     promoted: bool = False
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
@@ -22,8 +18,6 @@ class EventCreate(BaseModel):
         if self.starts_at.tzinfo is None:
             raise ValueError("starts_at must include a timezone")
 
-        if self.ends_at is not None and (self.ends_at.tzinfo is None or self.ends_at <= self.starts_at):
-            raise ValueError("ends_at must include a timezone and be after starts_at")
         if (self.latitude is None) != (self.longitude is None):
             raise ValueError("latitude and longitude must be provided together")
 
@@ -31,14 +25,11 @@ class EventCreate(BaseModel):
 
 
 class EventUpdate(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     title: str | None = Field(default=None, min_length=3, max_length=180)
     category: str | None = Field(default=None, min_length=2, max_length=40)
     starts_at: datetime | None = None
-    ends_at: datetime | None = None
-    audiences: list[Occupation] | None = Field(default=None, max_length=7)
     location: str | None = Field(default=None, min_length=2, max_length=300)
-    description: str | None = Field(default=None, max_length=10000)
+    description: str | None = None
     promoted: bool | None = None
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
@@ -56,13 +47,6 @@ class EventUpdate(BaseModel):
 
 
 class EventResponse(BaseModel):
-    host_name: str = "Organizer"
-    going: int = 0
-    registered: bool = False
-    staff_count: int = 0
-    liked: bool = False
-    ends_at: datetime | None = None
-    audiences: list[Occupation] | None = None
     id: int
     host_id: int
     title: str
@@ -100,19 +84,10 @@ class AttendeeResponse(BaseModel):
 
 
 class StaffInviteCreate(BaseModel):
-    user_id: int | None = Field(default=None, gt=0)
-    email: EmailStr | None = None
-
-    @model_validator(mode="after")
-    def identify_user(self):
-        if (self.user_id is None) == (self.email is None):
-            raise ValueError("Provide exactly one of user_id or email")
-        return self
+    user_id: int = Field(gt=0)
 
 
 class StaffResponse(BaseModel):
-    email: str | None = None
-    name: str | None = None
     id: int
     event_id: int
     user_id: int

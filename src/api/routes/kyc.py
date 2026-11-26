@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 from typing import Annotated
 
 from fastapi import (
@@ -10,20 +11,18 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import FileResponse, Response
-from sqlalchemy import select, delete
-from sqlalchemy.exc import IntegrityError
+from fastapi.responses import FileResponse
+from sqlalchemy import select
 
 from src.api.deps import get_current_user
+from src.core.config import get_settings
 from src.db.session import DbSession
-from src.models.kyc import KYCSubmission, KYCDocument
+from src.models.kyc import KYCSubmission
 from src.models.user import User
 from src.schemas.kyc import KYCReview, KYCStatus, KYCSubmit
 from src.services.kyc_service import (
     KYCEncryptionNotConfigured,
     encrypt_id_number,
-    encrypt_document,
-    decrypt_document,
 )
 
 router = APIRouter(prefix="/api/v1/kyc", tags=["KYC"])
@@ -58,12 +57,11 @@ async def submit_kyc(
     result = await db.execute(
         select(KYCSubmission).where(
             KYCSubmission.user_id == current_user.id
-        ).with_for_update()
+        )
     )
     submission = result.scalar_one_or_none()
 
     if submission and submission.status not in {
-        "draft",
         "rejected",
         "resubmission_required",
     }:
@@ -81,8 +79,7 @@ async def submit_kyc(
         "document_front_path": None,
         "document_back_path": None,
         "selfie_path": None,
-        "personal_details": data.personal_details.model_dump() if data.personal_details else None,
-        "status": "draft" if data.defer_review else "pending",
+        "status": "pending",
         "review_note": None,
         "reviewed_by": None,
         "reviewed_at": None,
@@ -91,7 +88,6 @@ async def submit_kyc(
     previous_files = []
 
     if submission:
-        await db.execute(delete(KYCDocument).where(KYCDocument.submission_id == submission.id))
         previous_files = [
             submission.document_front_path,
             submission.document_back_path,
@@ -107,15 +103,11 @@ async def submit_kyc(
         )
         db.add(submission)
 
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=409, detail="A submission already exists. Refresh your verification status.") from None
+    await db.commit()
     await db.refresh(submission)
 
     for old_file in previous_files:
-        if old_file and not old_file.startswith("db:"):
+        if old_file:
             try:
                 Path(old_file).unlink(missing_ok=True)
             except OSError:
@@ -200,10 +192,6 @@ async def review_kyc(
             detail="Only pending submissions can be reviewed",
         )
 
-    required = {"front", "selfie"} if submission.id_type == "Passport" else {"front", "back", "selfie"}
-    if data.status == "approved" and not required.issubset(submission.documents):
-        raise HTTPException(status_code=422, detail="Required identity documents are missing")
-
     submission.status = data.status
     submission.review_note = data.review_note
     submission.reviewed_by = current_user.id
@@ -244,12 +232,12 @@ async def upload_kyc_document(
             detail="Only JPEG, PNG, or PDF files are accepted",
         )
 
-    content = await file.read(4 * 1024 * 1024 + 1)
+    content = await file.read(5 * 1024 * 1024 + 1)
 
-    if not content or len(content) > 4 * 1024 * 1024:
+    if not content or len(content) > 5 * 1024 * 1024:
         raise HTTPException(
             status_code=413,
-            detail="File must be between 1 byte and 4 MB",
+            detail="File must be between 1 byte and 5 MB",
         )
 
     valid_signature = (
@@ -276,7 +264,7 @@ async def upload_kyc_document(
     result = await db.execute(
         select(KYCSubmission).where(
             KYCSubmission.user_id == current_user.id
-        ).with_for_update()
+        )
     )
     submission = result.scalar_one_or_none()
 
@@ -286,30 +274,35 @@ async def upload_kyc_document(
             detail="Submit the KYC form before uploading documents",
         )
 
-    if submission.status not in {"draft", "pending"}:
+    if submission.status == "approved":
         raise HTTPException(
             status_code=409,
-            detail="Only draft or pending KYC documents can be changed",
+            detail="Approved KYC submissions cannot be changed",
         )
 
-    try:
-        encrypted = encrypt_document(content)
-    except KYCEncryptionNotConfigured:
-        raise HTTPException(status_code=503, detail="KYC encryption is not configured") from None
+    suffix = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "application/pdf": ".pdf",
+    }[file.content_type]
 
-    document = (await db.execute(select(KYCDocument).where(
-        KYCDocument.submission_id == submission.id, KYCDocument.kind == kind,
-    ))).scalar_one_or_none()
-    if document is None:
-        document = KYCDocument(submission_id=submission.id, kind=kind)
-        db.add(document)
-    document.content_type = file.content_type
-    document.encrypted_content = encrypted
+    base_dir = Path(get_settings().KYC_UPLOAD_DIR).resolve()
+    user_dir = base_dir / str(current_user.id)
+    user_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    user_dir.chmod(0o700)
+
+    destination = user_dir / f"{kind}_{uuid4().hex}{suffix}"
+    destination.write_bytes(content)
+    destination.chmod(0o600)
+
     field_name = allowed_kinds[kind]
     old_path = getattr(submission, field_name)
-    setattr(submission, field_name, "db:" + kind)
+
+    setattr(submission, field_name, str(destination))
+
     await db.commit()
-    if old_path and not old_path.startswith("db:"):
+
+    if old_path:
         try:
             Path(old_path).unlink(missing_ok=True)
         except OSError:
@@ -355,20 +348,6 @@ async def download_kyc_document(
         else None
     )
 
-    if path_value and path_value.startswith("db:"):
-        document = (await db.execute(select(KYCDocument).where(
-            KYCDocument.submission_id == submission.id, KYCDocument.kind == kind,
-        ))).scalar_one_or_none()
-        if document:
-            try:
-                decrypted = decrypt_document(document.encrypted_content)
-            except KYCEncryptionNotConfigured:
-                raise HTTPException(status_code=503, detail="KYC document cannot be decrypted") from None
-            return Response(decrypted, media_type=document.content_type, headers={
-                "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-                "Content-Disposition": 'attachment; filename="' + kind + '"',
-            })
-
     if not path_value or not Path(path_value).is_file():
         raise HTTPException(
             status_code=404,
@@ -378,28 +357,4 @@ async def download_kyc_document(
     return FileResponse(
         path_value,
         filename=Path(path_value).name,
-        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
     )
-
-
-@router.post("/complete", response_model=KYCStatus)
-async def complete_kyc(
-    db: DbSession,
-    current_user: Annotated[User, Depends(get_current_user)],
-):
-    submission = (await db.execute(select(KYCSubmission).where(
-        KYCSubmission.user_id == current_user.id,
-    ).with_for_update())).scalar_one_or_none()
-    if submission is None:
-        raise HTTPException(status_code=404, detail="No KYC submission found")
-    if submission.status == "pending":
-        return submission
-    if submission.status != "draft":
-        raise HTTPException(status_code=409, detail="Only draft submissions can be completed")
-    required = {"front", "selfie"} if submission.id_type == "Passport" else {"front", "back", "selfie"}
-    if not required.issubset(submission.documents):
-        raise HTTPException(status_code=422, detail="Upload all required documents before submitting")
-    submission.status = "pending"
-    await db.commit()
-    await db.refresh(submission)
-    return submission
