@@ -22,6 +22,9 @@ engine = create_async_engine(
     pool_timeout=settings.DB_POOL_TIMEOUT,
     pool_recycle=settings.DB_POOL_RECYCLE,
     pool_pre_ping=True,
+    connect_args={
+        "statement_cache_size": 0,
+    },
 )
 
 AsyncSessionFactory = async_sessionmaker(

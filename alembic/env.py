@@ -49,12 +49,17 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+
 async def run_async_migrations() -> None:
     """Run migrations using an asynchronous SQLAlchemy engine."""
     settings = Settings()
+
     connectable = create_async_engine(
         settings.DATABASE_URL,
         poolclass=pool.NullPool,
+        connect_args={
+            "statement_cache_size": 0,
+        },
     )
 
     try:
@@ -62,6 +67,7 @@ async def run_async_migrations() -> None:
             await connection.run_sync(do_run_migrations)
     finally:
         await connectable.dispose()
+
 
 
 def run_migrations_online() -> None:
