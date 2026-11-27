@@ -31,7 +31,7 @@ export function SettingsScreen({
   const isHost = session.role === "host";
   const displayEmail = session.email;
   const notify = useToast();
-  const demo = () => notify("This is a demo — changes aren't saved");
+  const unavailable = () => notify("This feature is not available yet.");
   const [toggles, setToggles] = useState<Record<ToggleKey, boolean>>({
     push: true,
     email: false,
@@ -111,13 +111,12 @@ export function SettingsScreen({
           label="Edit Profile"
           hint="Personal details, bio, and links"
           chevron
-          onClick={demo}
+          onClick={unavailable}
         />
         <Row
           label="Change Password"
-          hint="Last updated 3 months ago"
           chevron
-          onClick={demo}
+          onClick={unavailable}
         />
       </SettingsGroup>
 
@@ -137,7 +136,7 @@ export function SettingsScreen({
       </SettingsGroup>
 
       <SettingsGroup title="Preferences">
-        <Row label="Language" value="English" chevron onClick={demo} />
+        <Row label="Language" value="English" chevron onClick={unavailable} />
         <Row
           label="Dark Mode"
           hint="Easier on the eyes at night"
@@ -147,8 +146,8 @@ export function SettingsScreen({
       </SettingsGroup>
 
       <SettingsGroup title="Support">
-        <Row label="Help Center" chevron onClick={demo} />
-        <Row label="Report a Problem" chevron onClick={demo} />
+        <Row label="Help Center" chevron onClick={unavailable} />
+        <Row label="Report a Problem" chevron onClick={unavailable} />
         <Row
           label="Terms & Conditions"
           hint="Rules for using Sali Ka"
@@ -172,7 +171,6 @@ export function SettingsScreen({
       <button className="logout-btn" onClick={onLogout}>
         <LogOut size={18} strokeWidth={2.2} /> Log Out
       </button>
-      <p className="version-text muted">Version 2.4.1 (40217)</p>
     </div>
   );
 }

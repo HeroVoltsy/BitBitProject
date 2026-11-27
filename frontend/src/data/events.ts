@@ -215,14 +215,6 @@ export const ATTENDEES = [
   { name: "Carlo Aquino", id: "CMN-10492", status: "PENDING" as const },
 ];
 
-export const USER = {
-  name: "Kyle Sta. Rosa",
-  firstName: "Kyle",
-  email: "kyle.starosa@community.com",
-  memberSince: "Member since Mar 2024",
-  initials: "KR",
-};
-
 /** Every event the current user has organized, newest first. Profile stats are derived from this. */
 export const ORGANIZED_EVENTS: OrganizedEvent[] = [
   { ...FEED_EVENTS[0], dateLabel: "Aug 23, 2026", rating: 4.9, reviews: 21 },

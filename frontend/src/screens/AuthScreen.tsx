@@ -266,7 +266,7 @@ export function AuthForm({
                   name="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Kyle Sta. Rosa…"
+                  placeholder="Enter your full name"
                   autoComplete="name"
                   aria-invalid={Boolean(errors.name)}
                   aria-describedby={errors.name ? "auth-err-name" : undefined}
@@ -311,7 +311,7 @@ export function AuthForm({
                   name="organization"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="BitBit Cafe…"
+                  placeholder="Enter your business name"
                   autoComplete="organization"
                   aria-invalid={Boolean(errors.businessName)}
                   aria-describedby={
@@ -332,7 +332,7 @@ export function AuthForm({
                   name="business-contact"
                   value={businessContact}
                   onChange={(e) => setBusinessContact(e.target.value)}
-                  placeholder="Phone or Facebook page…"
+                  placeholder="Phone number or contact page"
                   autoComplete="off"
                 />
               </label>
@@ -355,7 +355,7 @@ export function AuthForm({
                 spellCheck={false}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Enter your email"
                 autoComplete="email"
                 aria-invalid={Boolean(errors.email)}
                 aria-describedby={errors.email ? "auth-err-email" : undefined}
