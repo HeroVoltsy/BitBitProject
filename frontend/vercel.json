@@ -7,6 +7,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/backend/api/v1/kyc/:path*",
+      "destination": "https://bit-bit-project.vercel.app/api/v1/kyc/:path*"
+    },
+    {
       "source": "/backend/auth/:path*",
       "destination": "https://bit-bit-project.vercel.app/auth/:path*"
     },
